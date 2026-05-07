@@ -1,0 +1,29 @@
+{
+  "name": "rtd-erp-demo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Demo Hệ thống Thông tin Quản lý (ERP) cho Tập đoàn RTD Việt Nam",
+  "packageManager": "pnpm@9.12.0",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=9.0.0"
+  },
+  "scripts": {
+    "infra:up": "docker compose up -d",
+    "infra:down": "docker compose down",
+    "infra:reset": "docker compose down -v && docker compose up -d",
+    "infra:logs": "docker compose logs -f",
+    "db:migrate": "pnpm --filter @rtd/backend prisma:migrate",
+    "db:seed": "pnpm --filter @rtd/backend prisma:seed",
+    "db:studio": "pnpm --filter @rtd/backend prisma:studio",
+    "dev": "pnpm --parallel --filter @rtd/backend --filter @rtd/frontend dev",
+    "build": "pnpm --recursive --filter \"./backend\" --filter \"./frontend\" build",
+    "typecheck": "pnpm --recursive --if-present typecheck",
+    "test": "pnpm --recursive --if-present test",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md,yml,yaml}\""
+  },
+  "devDependencies": {
+    "prettier": "3.3.3",
+    "typescript": "5.5.4"
+  }
+}
