@@ -1,47 +1,40 @@
-# Dependencies
-node_modules/
-.pnpm-store/
+# Loại trừ tất cả các file/folder cũ (backend, frontend, docs, github workflow, configs...)
+# Chỉ giữ index.html + README + .nojekyll cho GitHub Pages root deploy.
+
+# Folders cũ
+backend/
+frontend/
+packages/
+docs/
+.github/
 
 # Build artifacts
+node_modules/
+.pnpm-store/
 dist/
 build/
 .next/
 out/
 *.tsbuildinfo
 
-# Environment
+# Configs cấp project (không cần cho single-file demo)
+docker-compose.yml
+package.json
+pnpm-lock.yaml
+pnpm-workspace.yaml
+tsconfig.base.json
+.editorconfig
+.prettierrc
 .env
-.env.local
+.env.example
 .env.*.local
-!.env.example
+CLAUDE.md
 
 # Logs
 logs/
 *.log
-npm-debug.log*
-pnpm-debug.log*
-
-# IDE
-.vscode/*
-!.vscode/extensions.json
-!.vscode/settings.json.example
-.idea/
 *.swp
 
 # OS
 .DS_Store
 Thumbs.db
-
-# Test
-coverage/
-.nyc_output/
-
-# Prisma
-backend/prisma/migrations/dev/
-
-# Docker volumes (nếu mount cục bộ)
-.docker-data/
-
-# Temp
-tmp/
-*.tmp

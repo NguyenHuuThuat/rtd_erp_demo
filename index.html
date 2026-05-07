@@ -1,0 +1,2246 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RTD ERP — Demo Hệ thống Thông tin Quản lý</title>
+<meta name="description" content="Demo ERP cho Tập đoàn RTD Việt Nam — Phase 1: Quản trị + Tài chính – Kế toán" />
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        rtd: {50:'#f0fdf4',100:'#dcfce7',200:'#bbf7d0',300:'#86efac',400:'#4ade80',500:'#22c55e',600:'#16a34a',700:'#15803d',800:'#166534',900:'#14532d'}
+      }
+    }
+  }
+};
+</script>
+<style>
+  body { font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; background:#f8fafc; color:#0f172a; -webkit-font-smoothing:antialiased; }
+  ::-webkit-scrollbar { width:8px; height:8px; }
+  ::-webkit-scrollbar-thumb { background:#cbd5e1; border-radius:4px; }
+  @keyframes fade-in { from { opacity:0; transform:translateY(8px) scale(.98); } to { opacity:1; transform:none; } }
+  .animate-in { animation: fade-in 150ms ease-out; }
+  @keyframes pulse-dot { 0%,100% { opacity:1; } 50% { opacity:.4; } }
+  .live-dot { animation: pulse-dot 2s ease-in-out infinite; }
+  .tabular-nums { font-variant-numeric: tabular-nums; }
+  @media print {
+    .no-print { display:none !important; }
+    body { background:white !important; }
+    .print-only { display:block !important; }
+  }
+  .print-only { display:none; }
+</style>
+</head>
+<body>
+<div id="root">
+  <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;color:#64748b;font-size:14px">
+    Đang tải RTD ERP Demo…
+  </div>
+</div>
+
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useEffect, useMemo, useRef } = React;
+
+// ============================================================
+// MOCK DATA
+// ============================================================
+
+const ORGS = [
+  {id:'rtd',code:'RTD',name:'Tập đoàn RTD Việt Nam',type:'GROUP',parentId:null,taxCode:'0100000000',province:'Hà Nội'},
+  {id:'feed',code:'RTD-FEED',name:'Công ty TNHH RTD Feed',type:'COMPANY',parentId:'rtd',taxCode:'0100000001',province:'Hà Nam'},
+  {id:'farm',code:'RTD-FARM',name:'Công ty TNHH RTD Farm',type:'COMPANY',parentId:'rtd',taxCode:'0100000002',province:'Hưng Yên'},
+  {id:'food',code:'RTD-FOOD',name:'Công ty TNHH RTD Food',type:'COMPANY',parentId:'rtd',taxCode:'0100000003',province:'Hà Nội'},
+  {id:'vet',code:'RTD-VET',name:'Công ty TNHH RTD Vet',type:'COMPANY',parentId:'rtd',taxCode:'0100000004',province:'Hà Nội'},
+  {id:'log',code:'RTD-LOG',name:'Công ty TNHH RTD Logistics',type:'COMPANY',parentId:'rtd',taxCode:'0100000005',province:'Hải Phòng'},
+  {id:'feed-hn',code:'FEED-BR-HN',name:'RTD Feed - Chi nhánh Hà Nội',type:'BRANCH',parentId:'feed',province:'Hà Nội'},
+  {id:'feed-hcm',code:'FEED-BR-HCM',name:'RTD Feed - Chi nhánh TP.HCM',type:'BRANCH',parentId:'feed',province:'TP.HCM'},
+  {id:'farm-tn',code:'FARM-TN',name:'RTD Farm - Trại Thái Nguyên',type:'BRANCH',parentId:'farm',province:'Thái Nguyên'},
+  {id:'farm-bg',code:'FARM-BG',name:'RTD Farm - Trại Bắc Giang',type:'BRANCH',parentId:'farm',province:'Bắc Giang'},
+];
+
+const USERS = [
+  {id:'u1',email:'admin@rtd.local',fullName:'Quản trị hệ thống',phone:'0901234567',company:'Tập đoàn RTD',roles:['SUPER_ADMIN'],active:true,lastLogin:'07/05/2026 10:24'},
+  {id:'u2',email:'gd.feed@rtd.vn',fullName:'Nguyễn Văn An',phone:'0911000001',company:'RTD Feed',roles:['ADMIN'],active:true,lastLogin:'06/05/2026 08:30'},
+  {id:'u3',email:'gd.farm@rtd.vn',fullName:'Trần Thị Bình',phone:'0911000002',company:'RTD Farm',roles:['ADMIN'],active:true,lastLogin:'07/05/2026 07:15'},
+  {id:'u4',email:'kt.tonghop@rtd.vn',fullName:'Phạm Quốc Cường',phone:'0911000003',company:'Tập đoàn RTD',roles:['ADMIN'],active:true,lastLogin:'07/05/2026 09:00'},
+  {id:'u5',email:'ke.toan1@rtd.vn',fullName:'Lê Thị Dung',phone:'0911000004',company:'RTD Feed',roles:['ACCOUNTANT'],active:true,lastLogin:'06/05/2026 16:45'},
+  {id:'u6',email:'ke.toan2@rtd.vn',fullName:'Hoàng Minh Đức',phone:'0911000005',company:'RTD Farm',roles:['ACCOUNTANT'],active:true,lastLogin:'—'},
+  {id:'u7',email:'qly.kho@rtd.vn',fullName:'Vũ Thị Hà',phone:'0911000006',company:'RTD Logistics',roles:['VIEWER'],active:true,lastLogin:'05/05/2026 14:20'},
+  {id:'u8',email:'mua.hang@rtd.vn',fullName:'Đỗ Văn Khánh',phone:'0911000007',company:'Tập đoàn RTD',roles:['VIEWER'],active:false,lastLogin:'12/04/2026 10:00'},
+];
+
+const ROLES = [
+  {code:'SUPER_ADMIN',name:'Quản trị viên cấp cao',description:'Toàn quyền hệ thống',userCount:1,permCount:32,system:true},
+  {code:'ADMIN',name:'Quản trị viên',description:'Quyền quản trị nghiệp vụ',userCount:3,permCount:24,system:true},
+  {code:'ACCOUNTANT',name:'Kế toán viên',description:'Ghi sổ, quản lý hóa đơn',userCount:4,permCount:12,system:false},
+  {code:'MANAGER_FACTORY',name:'Giám đốc nhà máy',description:'Quản lý nhà máy + duyệt SX',userCount:2,permCount:14,system:false},
+  {code:'VIEWER',name:'Người xem',description:'Chỉ xem báo cáo',userCount:6,permCount:8,system:true},
+];
+
+const APPROVALS = [
+  {id:'a1',code:'AR-2026-05-008',type:'PURCHASE_ORDER',title:'Mua 50 tấn ngô vàng — Cargill VN',amount:1200000000,requester:'Đỗ Văn Khánh',requesterEmail:'mua.hang@rtd.vn',submittedAt:'07/05/2026 10:15',currentStep:2,totalSteps:3,currentApprover:'Phạm Quốc Cường (KT trưởng)',status:'PENDING',
+   history:[{step:1,name:'Trưởng phòng mua',approver:'Đỗ Văn Khánh',result:'APPROVED',at:'07/05 10:30',comment:'Đúng kế hoạch SX T5'},
+            {step:2,name:'Kế toán trưởng',approver:'Phạm Quốc Cường',result:'PENDING',at:null,comment:null},
+            {step:3,name:'TGĐ',approver:'Nguyễn Văn An',result:'PENDING',at:null,comment:null}]},
+  {id:'a2',code:'AR-2026-05-009',type:'INVOICE',title:'HĐ bán cám heo nái — ĐL Bắc Giang',amount:215000000,requester:'Lê Thị Dung',requesterEmail:'ke.toan1@rtd.vn',submittedAt:'07/05/2026 09:00',currentStep:1,totalSteps:2,currentApprover:'Phạm Quốc Cường (KT trưởng)',status:'PENDING',
+   history:[{step:1,name:'Kế toán trưởng',approver:'Phạm Quốc Cường',result:'PENDING',at:null,comment:null},
+            {step:2,name:'Giám đốc nhà máy',approver:'Nguyễn Văn An',result:'PENDING',at:null,comment:null}]},
+  {id:'a3',code:'AR-2026-05-007',type:'BUDGET',title:'Ngân sách Q2/2026 — RTD Feed',amount:12500000000,requester:'Nguyễn Văn An',requesterEmail:'gd.feed@rtd.vn',submittedAt:'06/05/2026 15:00',currentStep:1,totalSteps:1,currentApprover:'TGĐ Tập đoàn',status:'PENDING',
+   history:[{step:1,name:'TGĐ Tập đoàn',approver:'TGĐ Tập đoàn',result:'PENDING',at:null,comment:null}]},
+  {id:'a4',code:'AR-2026-05-006',type:'PURCHASE_ORDER',title:'Mua bao bì PP 25kg — An Phát',amount:85000000,requester:'Đỗ Văn Khánh',requesterEmail:'mua.hang@rtd.vn',submittedAt:'05/05/2026 08:00',currentStep:3,totalSteps:3,currentApprover:'—',status:'APPROVED',
+   history:[{step:1,name:'Trưởng phòng mua',approver:'Đỗ Văn Khánh',result:'APPROVED',at:'05/05 08:30',comment:''},
+            {step:2,name:'Kế toán trưởng',approver:'Phạm Quốc Cường',result:'APPROVED',at:'05/05 10:00',comment:'OK'},
+            {step:3,name:'TGĐ',approver:'Nguyễn Văn An',result:'APPROVED',at:'05/05 14:00',comment:'Duyệt'}]},
+  {id:'a5',code:'AR-2026-05-005',type:'INVOICE',title:'HĐ mua khô đậu tương — Vinacam',amount:920000000,requester:'Lê Thị Dung',requesterEmail:'ke.toan1@rtd.vn',submittedAt:'04/05/2026 11:00',currentStep:1,totalSteps:2,currentApprover:'—',status:'REJECTED',
+   history:[{step:1,name:'Kế toán trưởng',approver:'Phạm Quốc Cường',result:'REJECTED',at:'04/05 16:30',comment:'Giá cao hơn thị trường, đề nghị đàm phán lại'}]},
+];
+
+const INITIAL_JOURNALS = [
+  {id:'j1',code:'JV-2026-04-001',date:'02/04/2026',description:'Mua nguyên liệu ngô vàng nhập kho NM Hà Nam',refType:'PURCHASE_INVOICE',totalDebit:1250000000,totalCredit:1250000000,status:'POSTED'},
+  {id:'j2',code:'JV-2026-04-002',date:'03/04/2026',description:'Bán cám heo thịt cho ĐL Sơn Hùng - HCM',refType:'SALES_INVOICE',totalDebit:480000000,totalCredit:480000000,status:'POSTED'},
+  {id:'j3',code:'JV-2026-04-003',date:'05/04/2026',description:'Thu tiền ĐL Sơn Hùng',refType:'PAYMENT_RECEIPT',totalDebit:480000000,totalCredit:480000000,status:'POSTED'},
+  {id:'j4',code:'JV-2026-04-004',date:'08/04/2026',description:'Chi lương khối VP T4/2026',refType:'PAYMENT_DISBURSEMENT',totalDebit:320000000,totalCredit:320000000,status:'POSTED'},
+  {id:'j5',code:'JV-2026-04-005',date:'10/04/2026',description:'Mua bao bì nhập kho NM Bắc Ninh',refType:'PURCHASE_INVOICE',totalDebit:85000000,totalCredit:85000000,status:'POSTED'},
+  {id:'j6',code:'JV-2026-04-006',date:'15/04/2026',description:'Bán heo xuất chuồng - lô 24A trại TN',refType:'SALES_INVOICE',totalDebit:1840000000,totalCredit:1840000000,status:'POSTED'},
+  {id:'j7',code:'JV-2026-04-007',date:'18/04/2026',description:'Khấu hao TSCĐ tháng 4',refType:'MANUAL',totalDebit:245000000,totalCredit:245000000,status:'POSTED'},
+  {id:'j8',code:'JV-2026-05-001',date:'02/05/2026',description:'Mua khô đậu tương nhập kho NM Hà Nam',refType:'PURCHASE_INVOICE',totalDebit:920000000,totalCredit:920000000,status:'POSTED'},
+  {id:'j9',code:'JV-2026-05-002',date:'04/05/2026',description:'Bán cám heo nái cho ĐL Bắc Giang',refType:'SALES_INVOICE',totalDebit:215000000,totalCredit:215000000,status:'POSTED'},
+  {id:'j10',code:'JV-2026-05-003',date:'06/05/2026',description:'Tạm ứng công tác phí GĐ NM Hà Nam',refType:'PAYMENT_DISBURSEMENT',totalDebit:12000000,totalCredit:12000000,status:'DRAFT'},
+];
+
+const INVOICES = [
+  {id:'i1',code:'INV-S-2026-04-012',type:'SALES',partner:'ĐL Sơn Hùng - HCM',date:'03/04/2026',due:'03/05/2026',total:480000000,paid:480000000,status:'PAID'},
+  {id:'i2',code:'INV-S-2026-04-013',type:'SALES',partner:'ĐL Minh Phú - Hà Nội',date:'05/04/2026',due:'05/05/2026',total:215000000,paid:100000000,status:'PARTIAL_PAID'},
+  {id:'i3',code:'INV-S-2026-04-014',type:'SALES',partner:'ĐL Hưng Thịnh - Bắc Giang',date:'15/04/2026',due:'15/05/2026',total:1840000000,paid:0,status:'ISSUED'},
+  {id:'i4',code:'INV-P-2026-04-008',type:'PURCHASE',partner:'Cargill VN',date:'02/04/2026',due:'02/05/2026',total:1250000000,paid:1250000000,status:'PAID'},
+  {id:'i5',code:'INV-P-2026-04-009',type:'PURCHASE',partner:'Bao bì An Phát',date:'10/04/2026',due:'10/05/2026',total:85000000,paid:85000000,status:'PAID'},
+];
+
+const ACCOUNTS = [
+  {code:'111',name:'Tiền mặt'},{code:'112',name:'Tiền gửi ngân hàng'},
+  {code:'131',name:'Phải thu khách hàng'},{code:'152',name:'Nguyên vật liệu'},
+  {code:'155',name:'Thành phẩm'},{code:'211',name:'TSCĐ hữu hình'},
+  {code:'214',name:'Hao mòn TSCĐ'},{code:'331',name:'Phải trả người bán'},
+  {code:'334',name:'Phải trả người LĐ'},{code:'411',name:'Vốn góp CSH'},
+  {code:'421',name:'LNST chưa phân phối'},{code:'511',name:'Doanh thu BH'},
+  {code:'632',name:'Giá vốn HB'},{code:'641',name:'CP bán hàng'},
+  {code:'642',name:'CP QLDN'},{code:'821',name:'Thuế TNDN'},
+];
+
+const TREND = [
+  {month:'T12/25',revenue:1820,expense:1440},
+  {month:'T01/26',revenue:2100,expense:1680},
+  {month:'T02/26',revenue:1950,expense:1580},
+  {month:'T03/26',revenue:2410,expense:1890},
+  {month:'T04/26',revenue:2320,expense:1810},
+  {month:'T05/26',revenue:2535,expense:1950},
+];
+
+const COMPANY_REVENUE = [
+  {name:'RTD Feed',value:7835,color:'#16a34a'},
+  {name:'RTD Farm',value:3240,color:'#3b82f6'},
+  {name:'RTD Food',value:1460,color:'#f59e0b'},
+  {name:'RTD Vet',value:420,color:'#8b5cf6'},
+  {name:'RTD Logistics',value:180,color:'#64748b'},
+];
+
+const NOTIFICATIONS = [
+  {id:'n1',title:'Hóa đơn quá hạn',body:'INV-S-2026-04-013 — ĐL Minh Phú quá hạn 3 ngày',at:'30 phút trước',type:'warning',read:false},
+  {id:'n2',title:'Yêu cầu phê duyệt mới',body:'PR-2026-05-012 (1.2 tỷ) chờ duyệt',at:'2 giờ trước',type:'info',read:false},
+  {id:'n3',title:'Backup hệ thống',body:'Backup DB hằng ngày hoàn tất lúc 02:00',at:'8 giờ trước',type:'success',read:false},
+  {id:'n4',title:'Đăng nhập đáng ngờ',body:'IP lạ đăng nhập TK admin@rtd.local',at:'1 ngày trước',type:'warning',read:true},
+];
+
+const AUDIT_LOGS = [
+  {actor:'admin@rtd.local',action:'CREATE',entity:'Organization',detail:'FARM-BG (Trại Bắc Giang)',at:'07/05/2026 08:42'},
+  {actor:'gd.feed@rtd.vn',action:'UPDATE',entity:'User',detail:'Đổi role cho ke.toan1@rtd.vn',at:'07/05/2026 08:15'},
+  {actor:'admin@rtd.local',action:'CREATE',entity:'Role',detail:'Tạo role MANAGER_FACTORY',at:'06/05/2026 17:30'},
+  {actor:'kt.tonghop@rtd.vn',action:'APPROVE',entity:'Invoice',detail:'Duyệt INV-P-2026-04-008 (1.25 tỷ)',at:'06/05/2026 15:10'},
+  {actor:'admin@rtd.local',action:'UPDATE',entity:'SystemSetting',detail:'fiscal_year_start_month = 1',at:'05/05/2026 10:00'},
+  {actor:'gd.farm@rtd.vn',action:'UPDATE',entity:'PigGroup',detail:'Đàn 24A - cập nhật cân nặng',at:'05/05/2026 08:30'},
+  {actor:'admin@rtd.local',action:'CREATE',entity:'User',detail:'Tạo user kt.tonghop@rtd.vn',at:'04/05/2026 14:00'},
+  {actor:'kt.tonghop@rtd.vn',action:'CREATE',entity:'Journal',detail:'JV-2026-05-001 (920 triệu)',at:'02/05/2026 11:30'},
+];
+
+const PROVINCES = ['Hà Nội','Hà Nam','Hưng Yên','Bắc Giang','Thái Nguyên','TP.HCM','Hải Phòng','Đà Nẵng'];
+
+// ============================================================
+// UTILITIES
+// ============================================================
+
+const cn = (...c) => c.filter(Boolean).join(' ');
+const formatVND = (n) => {
+  if (n == null || n === '') return '—';
+  return new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND',maximumFractionDigits:0}).format(Number(n));
+};
+const formatNumber = (n) => new Intl.NumberFormat('vi-VN').format(Number(n));
+
+// ============================================================
+// ICONS — inline SVG (lucide-style)
+// ============================================================
+
+const I = {
+  leaf: 'M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19.2 2.96c1 3.38.5 6.65-1.67 8.97a7 7 0 0 1-6.53 8.07ZM2 21c0-3 1.85-5.36 5.08-6 1.5-.3 3.92-.26 6 1',
+  building:'M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2 M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2 M10 6h4 M10 10h4 M10 14h4 M10 18h4',
+  users:'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2 M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z M22 21v-2a4 4 0 0 0-3-3.87 M16 3.13a4 4 0 0 1 0 7.75',
+  shield:'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z M9 12l2 2 4-4',
+  wallet:'M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4 M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4 M18 12a2 2 0 0 0 0 4h4v-4Z',
+  receipt:'M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8 M12 17.5v-11',
+  scroll:'M19 17V5a2 2 0 0 0-2-2H4 M8 21h12a2 2 0 0 0 2-2v-1a1 1 0 0 0-1-1H11a1 1 0 0 0-1 1v1a2 2 0 1 1-4 0V5a2 2 0 1 0-4 0v2a1 1 0 0 0 1 1h3 M15 8h-5 M15 12h-5',
+  check:'M20 6 9 17l-5-5',
+  checkCircle:'M22 11.08V12a10 10 0 1 1-5.93-9.14 M22 4 12 14.01l-3-3',
+  x:'M18 6 6 18 M6 6l12 12',
+  chevronDown:'m6 9 6 6 6-6',
+  chevronRight:'m9 18 6-6-6-6',
+  chevronUp:'m18 15-6-6-6 6',
+  search:'M11 17.65a6.65 6.65 0 1 0 0-13.3 6.65 6.65 0 0 0 0 13.3Z M21 21l-4.35-4.35',
+  bell:'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9 M10.3 21a1.94 1.94 0 0 0 3.4 0',
+  logout:'M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4 M16 17l5-5-5-5 M21 12H9',
+  plus:'M12 5v14 M5 12h14',
+  mapPin:'M20 10c0 7-8 12-8 12s-8-5-8-12a8 8 0 0 1 16 0Z M12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z',
+  sparkles:'m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z M5 3v4 M19 17v4 M3 5h4 M17 19h4',
+  send:'M22 2 11 13 M22 2l-7 20-4-9-9-4 20-7Z',
+  trendUp:'M22 7 13.5 15.5 8.5 10.5 2 17 M16 7h6v6',
+  trendDown:'M22 17 13.5 8.5 8.5 13.5 2 7 M16 17h6v-6',
+  file:'M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8',
+  printer:'M6 9V2h12v7 M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2 M6 14h12v8H6Z',
+  home:'m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z M9 22V12h6v10',
+  settings:'M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2Z M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z',
+  user:'M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2 M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z',
+  filter:'M22 3H2l8 9.46V19l4 2v-8.54Z',
+  trash:'M3 6h18 M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6 M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2',
+  edit:'M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7 M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4Z',
+  handshake:'m11 17 2 2a1 1 0 1 0 3-3 m-2-2 2.5 2.5a1 1 0 1 0 3-3l-2.88-2.88a1 1 0 0 0-1.42 0L13 13l-3.65-3.65a2.83 2.83 0 0 1 4-4l1.05 1.05',
+  briefcase:'M16 20V4a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16 M20 6H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2Z',
+  target:'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20Z M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12Z M12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4Z',
+  bookOpen:'M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2Z M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7Z',
+  landmark:'M3 22h18 M5 18V11h2v7 M11 18V11h2v7 M17 18V11h2v7 M21 7 12 2 3 7Z M2 11h20',
+};
+
+const Icon = ({ name, className = 'w-5 h-5' }) => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    {(I[name] || '').split(/\s+M/).filter(Boolean).map((p, idx) => (
+      <path key={idx} d={(idx === 0 ? '' : 'M') + p} />
+    ))}
+  </svg>
+);
+
+// ============================================================
+// UI PRIMITIVES
+// ============================================================
+
+const StatusBadge = ({ variant = 'neutral', dot = false, children }) => {
+  const styles = {
+    success:'bg-rtd-100 text-rtd-700 ring-rtd-200',
+    warning:'bg-amber-100 text-amber-800 ring-amber-200',
+    danger:'bg-rose-100 text-rose-700 ring-rose-200',
+    info:'bg-blue-100 text-blue-700 ring-blue-200',
+    primary:'bg-violet-100 text-violet-700 ring-violet-200',
+    neutral:'bg-slate-100 text-slate-600 ring-slate-200',
+  };
+  return (
+    <span className={cn('inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded ring-1 ring-inset', styles[variant])}>
+      {dot && <span className="w-1.5 h-1.5 rounded-full bg-current" />}
+      {children}
+    </span>
+  );
+};
+
+const Modal = ({ open, onClose, title, description, size = 'md', footer, children }) => {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => e.key === 'Escape' && onClose();
+    document.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = ''; };
+  }, [open, onClose]);
+  if (!open) return null;
+  const sizeCls = { sm:'max-w-sm', md:'max-w-md', lg:'max-w-2xl', xl:'max-w-4xl', '2xl':'max-w-6xl' }[size];
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={onClose} />
+      <div className={cn('relative bg-white rounded-2xl shadow-2xl w-full max-h-[90vh] flex flex-col animate-in', sizeCls)}>
+        <div className="px-6 py-4 border-b border-slate-100 flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
+            {description && <p className="text-sm text-slate-500 mt-0.5">{description}</p>}
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400">
+            <Icon name="x" className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="px-6 py-5 overflow-y-auto flex-1">{children}</div>
+        {footer && <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50 rounded-b-2xl">{footer}</div>}
+      </div>
+    </div>
+  );
+};
+
+const Drawer = ({ open, onClose, title, subtitle, footer, children }) => {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e) => e.key === 'Escape' && onClose();
+    document.addEventListener('keydown', onKey);
+    document.body.style.overflow = 'hidden';
+    return () => { document.removeEventListener('keydown', onKey); document.body.style.overflow = ''; };
+  }, [open, onClose]);
+  return (
+    <div className={cn('fixed inset-0 z-40', !open && 'pointer-events-none')}>
+      <div onClick={onClose} className={cn('absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity', open ? 'opacity-100' : 'opacity-0')} />
+      <div className={cn('absolute right-0 top-0 bottom-0 w-full max-w-xl bg-white shadow-2xl flex flex-col transition-transform', open ? 'translate-x-0' : 'translate-x-full')}>
+        <div className="px-6 py-4 border-b border-slate-100 flex items-start justify-between gap-4">
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg font-semibold text-slate-900 truncate">{title}</h2>
+            {subtitle && <p className="text-sm text-slate-500 mt-0.5 truncate">{subtitle}</p>}
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-400">
+            <Icon name="x" className="w-5 h-5" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto">{children}</div>
+        {footer && <div className="px-6 py-4 border-t border-slate-100 bg-slate-50/50">{footer}</div>}
+      </div>
+    </div>
+  );
+};
+
+const KpiCard = ({ label, value, hint, icon, accent = 'green', trend }) => {
+  const accents = {
+    green:'bg-rtd-50 text-rtd-700',
+    blue:'bg-blue-50 text-blue-700',
+    amber:'bg-amber-50 text-amber-700',
+    rose:'bg-rose-50 text-rose-700',
+  };
+  return (
+    <div className="bg-white rounded-xl border border-slate-200 p-5 hover:shadow-md transition">
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="text-sm text-slate-500 font-medium">{label}</div>
+          <div className="text-2xl font-bold text-slate-900 mt-1.5 tabular-nums">{value}</div>
+          {hint && <div className="text-xs text-slate-400 mt-1 truncate">{hint}</div>}
+        </div>
+        {icon && <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center shrink-0', accents[accent])}><Icon name={icon} className="w-5 h-5" /></div>}
+      </div>
+      {trend && (
+        <div className="mt-3 flex items-center gap-1 text-xs">
+          <Icon name={trend.up ? 'trendUp' : 'trendDown'} className={cn('w-3.5 h-3.5', trend.up ? 'text-rtd-600' : 'text-rose-500')} />
+          <span className={trend.up ? 'text-rtd-600' : 'text-rose-500'}>{trend.up ? '+' : ''}{trend.value}%</span>
+          <span className="text-slate-500">so với kỳ trước</span>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const PageTitle = ({ title, subtitle, actions }) => (
+  <div className="flex items-start justify-between gap-4 mb-6">
+    <div>
+      <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
+      {subtitle && <p className="text-sm text-slate-500 mt-1">{subtitle}</p>}
+    </div>
+    {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
+  </div>
+);
+
+// ============================================================
+// CUSTOM CHARTS — SVG (no library)
+// ============================================================
+
+const AreaChart = ({ data, height = 240 }) => {
+  const w = 600, h = height, pad = { l:40, r:10, t:10, b:30 };
+  const maxY = Math.max(...data.flatMap(d => [d.revenue, d.expense])) * 1.1;
+  const minY = 0;
+  const xStep = (w - pad.l - pad.r) / (data.length - 1);
+  const yScale = (v) => h - pad.b - ((v - minY) / (maxY - minY)) * (h - pad.t - pad.b);
+  const xPos = (i) => pad.l + i * xStep;
+  const path = (key) => data.map((d, i) => `${i === 0 ? 'M' : 'L'} ${xPos(i)} ${yScale(d[key])}`).join(' ');
+  const areaPath = (key) => `${path(key)} L ${xPos(data.length - 1)} ${h - pad.b} L ${xPos(0)} ${h - pad.b} Z`;
+  const yTicks = [0, 0.25, 0.5, 0.75, 1].map(t => minY + t * (maxY - minY));
+  return (
+    <svg viewBox={`0 0 ${w} ${h}`} className="w-full" style={{ height }}>
+      <defs>
+        <linearGradient id="grad-rev" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#16a34a" stopOpacity="0.3" />
+          <stop offset="100%" stopColor="#16a34a" stopOpacity="0" />
+        </linearGradient>
+        <linearGradient id="grad-exp" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#f43f5e" stopOpacity="0.2" />
+          <stop offset="100%" stopColor="#f43f5e" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {yTicks.map((v, i) => (
+        <g key={i}>
+          <line x1={pad.l} y1={yScale(v)} x2={w - pad.r} y2={yScale(v)} stroke="#e2e8f0" strokeDasharray="3 3" />
+          <text x={pad.l - 6} y={yScale(v) + 4} fontSize="10" fill="#94a3b8" textAnchor="end">{v.toFixed(0)}</text>
+        </g>
+      ))}
+      {data.map((d, i) => (
+        <text key={i} x={xPos(i)} y={h - 8} fontSize="11" fill="#94a3b8" textAnchor="middle">{d.month}</text>
+      ))}
+      <path d={areaPath('revenue')} fill="url(#grad-rev)" />
+      <path d={areaPath('expense')} fill="url(#grad-exp)" />
+      <path d={path('revenue')} fill="none" stroke="#16a34a" strokeWidth="2" />
+      <path d={path('expense')} fill="none" stroke="#f43f5e" strokeWidth="2" />
+      {data.map((d, i) => (
+        <g key={i}>
+          <circle cx={xPos(i)} cy={yScale(d.revenue)} r="3" fill="#16a34a" />
+          <circle cx={xPos(i)} cy={yScale(d.expense)} r="3" fill="#f43f5e" />
+        </g>
+      ))}
+    </svg>
+  );
+};
+
+const PieDonut = ({ data, size = 180 }) => {
+  const total = data.reduce((s, d) => s + d.value, 0);
+  const r = size / 2 - 4, cx = size / 2, cy = size / 2;
+  const innerR = r * 0.62;
+  let cumAngle = -Math.PI / 2;
+  const slices = data.map((d) => {
+    const angle = (d.value / total) * Math.PI * 2;
+    const start = cumAngle, end = cumAngle + angle;
+    const x1 = cx + r * Math.cos(start), y1 = cy + r * Math.sin(start);
+    const x2 = cx + r * Math.cos(end), y2 = cy + r * Math.sin(end);
+    const xi1 = cx + innerR * Math.cos(end), yi1 = cy + innerR * Math.sin(end);
+    const xi2 = cx + innerR * Math.cos(start), yi2 = cy + innerR * Math.sin(start);
+    const largeArc = angle > Math.PI ? 1 : 0;
+    const path = `M ${x1} ${y1} A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2} L ${xi1} ${yi1} A ${innerR} ${innerR} 0 ${largeArc} 0 ${xi2} ${yi2} Z`;
+    cumAngle = end;
+    return { path, color: d.color, label: d.name };
+  });
+  return (
+    <svg viewBox={`0 0 ${size} ${size}`} width={size} height={size}>
+      {slices.map((s, i) => <path key={i} d={s.path} fill={s.color} />)}
+    </svg>
+  );
+};
+
+const BarChart = ({ items, height = 200, maxLabel = '' }) => {
+  const max = Math.max(...items.map(i => i.value));
+  return (
+    <div className="space-y-2.5" style={{ minHeight: height }}>
+      {items.map((it, i) => (
+        <div key={i}>
+          <div className="flex justify-between text-xs mb-1">
+            <span className="text-slate-700">{it.label}</span>
+            <span className="text-slate-500 tabular-nums">{it.display ?? it.value}</span>
+          </div>
+          <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+            <div className="h-full transition-all" style={{ width: `${(it.value / max) * 100}%`, background: it.color || '#16a34a' }} />
+          </div>
+        </div>
+      ))}
+      {maxLabel && <div className="text-[10px] text-slate-400 mt-2">Max: {maxLabel}</div>}
+    </div>
+  );
+};
+
+// ============================================================
+// LAYOUT — Sidebar, Topbar, DemoBanner
+// ============================================================
+
+const NAV = [
+  { type: 'item', key: 'dashboard', label: 'Trang chủ', icon: 'home' },
+  { type: 'group', label: 'Quản trị', icon: 'shield', items: [
+    { key: 'orgs', label: 'Cơ cấu tổ chức', icon: 'building' },
+    { key: 'users', label: 'Người dùng', icon: 'users' },
+    { key: 'roles', label: 'Vai trò & Phân quyền', icon: 'shield' },
+    { key: 'partners', label: 'Đối tác', icon: 'handshake' },
+    { key: 'approvals', label: 'Phê duyệt', icon: 'checkCircle', badge: '3' },
+    { key: 'audit', label: 'Nhật ký hoạt động', icon: 'scroll' },
+    { key: 'settings', label: 'Cài đặt hệ thống', icon: 'settings' },
+  ]},
+  { type: 'group', label: 'Tài chính – Kế toán', icon: 'wallet', items: [
+    { key: 'financial', label: 'Tổng quan', icon: 'home' },
+    { key: 'coa', label: 'Hệ thống tài khoản', icon: 'bookOpen' },
+    { key: 'journals', label: 'Sổ nhật ký', icon: 'scroll' },
+    { key: 'invoices', label: 'Hóa đơn', icon: 'receipt' },
+    { key: 'payments', label: 'Phiếu thu / chi', icon: 'landmark' },
+    { key: 'costcenters', label: 'Trung tâm chi phí', icon: 'briefcase' },
+    { key: 'budgets', label: 'Ngân sách', icon: 'target' },
+    { key: 'reports', label: 'Báo cáo', icon: 'file' },
+  ]},
+];
+
+const Sidebar = ({ currentPage, setPage }) => {
+  const [expanded, setExpanded] = useState({ 'Quản trị': true, 'Tài chính – Kế toán': true });
+  const toggle = (label) => setExpanded(e => ({ ...e, [label]: !e[label] }));
+  return (
+    <aside className="w-64 bg-white border-r border-slate-200 flex flex-col h-screen sticky top-0 shrink-0">
+      <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-3">
+        <div className="w-9 h-9 rounded-lg bg-rtd-600 text-white flex items-center justify-center shadow-md shadow-rtd-200">
+          <Icon name="leaf" className="w-5 h-5" />
+        </div>
+        <div className="min-w-0">
+          <div className="font-bold text-rtd-800 leading-tight">RTD ERP</div>
+          <div className="text-[11px] text-slate-500">Phase 1 — Demo</div>
+        </div>
+      </div>
+      <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-0.5">
+        {NAV.map((n, idx) => {
+          if (n.type === 'item') {
+            const active = currentPage === n.key;
+            return (
+              <button key={n.key} onClick={() => setPage(n.key)} className={cn('w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition', active ? 'bg-rtd-50 text-rtd-700' : 'text-slate-700 hover:bg-slate-50')}>
+                <Icon name={n.icon} className="w-4 h-4" />
+                {n.label}
+              </button>
+            );
+          }
+          const isOpen = expanded[n.label];
+          return (
+            <div key={idx} className="pt-2">
+              <button onClick={() => toggle(n.label)} className="w-full flex items-center justify-between px-3 py-1.5 text-[11px] font-semibold text-slate-500 uppercase tracking-wider hover:text-slate-700">
+                <span className="flex items-center gap-2"><Icon name={n.icon} className="w-3.5 h-3.5" />{n.label}</span>
+                <Icon name="chevronDown" className={cn('w-3.5 h-3.5 transition-transform', !isOpen && '-rotate-90')} />
+              </button>
+              {isOpen && (
+                <div className="mt-1 space-y-0.5">
+                  {n.items.map(item => {
+                    const active = currentPage === item.key;
+                    return (
+                      <button key={item.key} onClick={() => setPage(item.key)} className={cn('w-full flex items-center gap-3 pl-7 pr-3 py-2 rounded-lg text-sm transition', active ? 'bg-rtd-50 text-rtd-700 font-medium' : 'text-slate-600 hover:bg-slate-50')}>
+                        <Icon name={item.icon} className="w-4 h-4" />
+                        <span className="flex-1 text-left">{item.label}</span>
+                        {item.badge && <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">{item.badge}</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </nav>
+      <div className="px-4 py-3 border-t border-slate-100">
+        <div className="rounded-lg bg-gradient-to-br from-rtd-50 to-emerald-50 p-3 text-[11px]">
+          <div className="font-semibold text-rtd-800">Phase 2 — sắp tới</div>
+          <div className="text-slate-600 mt-0.5">Procurement · Manufacturing · Inventory · Farm · Sales</div>
+        </div>
+        <div className="text-[11px] text-slate-400 mt-2 text-center">v0.1.0 — © 2026 RTD</div>
+      </div>
+    </aside>
+  );
+};
+
+const Topbar = ({ user, onLogout, notifications, markAllRead, toast }) => {
+  const [bellOpen, setBellOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const unread = notifications.filter(n => !n.read).length;
+  return (
+    <header className="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-6 sticky top-0 z-20">
+      <div className="flex items-center gap-3 flex-1 max-w-md">
+        <div className="relative w-full">
+          <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input type="search" placeholder="Tìm tổ chức, người dùng, hóa đơn…" onFocus={() => toast('Tìm kiếm toàn cục — sắp ra mắt 🔍')} className="w-full pl-9 pr-3 py-1.5 text-sm bg-slate-50 border border-transparent rounded-lg focus:outline-none focus:bg-white focus:border-slate-300" />
+        </div>
+      </div>
+      <div className="flex items-center gap-1 relative">
+        <button onClick={() => { setBellOpen(o => !o); setProfileOpen(false); }} className="p-2 rounded-lg hover:bg-slate-100 text-slate-600 relative">
+          <Icon name="bell" className="w-5 h-5" />
+          {unread > 0 && <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-amber-500 ring-2 ring-white live-dot" />}
+        </button>
+        {bellOpen && (
+          <div className="absolute right-0 top-full mt-2 w-96 bg-white rounded-xl shadow-xl border border-slate-200 z-30 animate-in" style={{ right: 60 }}>
+            <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
+              <div>
+                <div className="font-semibold text-sm text-slate-800">Thông báo</div>
+                <div className="text-xs text-slate-500">{unread} chưa đọc</div>
+              </div>
+              {unread > 0 && <button onClick={() => { markAllRead(); toast('Đã đánh dấu tất cả đã đọc'); }} className="text-xs text-rtd-600 hover:text-rtd-700">Đọc hết</button>}
+            </div>
+            <div className="max-h-96 overflow-y-auto">
+              {notifications.map(n => (
+                <div key={n.id} className={cn('px-4 py-3 border-b border-slate-50 flex items-start gap-3', !n.read && 'bg-rtd-50/30')}>
+                  <span className={cn('w-2 h-2 rounded-full mt-1.5 shrink-0', n.type === 'warning' ? 'bg-amber-500' : n.type === 'success' ? 'bg-rtd-500' : 'bg-blue-500')} />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-slate-800">{n.title}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">{n.body}</div>
+                    <div className="text-xs text-slate-400 mt-1">{n.at}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        <button onClick={() => { setProfileOpen(o => !o); setBellOpen(false); }} className="flex items-center gap-2 pl-2 ml-1 hover:bg-slate-50 rounded-lg py-1 pr-2">
+          <Icon name="user" className="w-7 h-7 text-slate-400" />
+          <span className="hidden md:block text-left">
+            <span className="block text-sm font-medium text-slate-700 leading-tight">{user.fullName}</span>
+            <span className="block text-[11px] text-slate-500">{user.email}</span>
+          </span>
+        </button>
+        {profileOpen && (
+          <div className="absolute right-0 top-full mt-2 w-60 bg-white rounded-xl shadow-xl border border-slate-200 z-30 animate-in">
+            <div className="px-4 py-3 border-b border-slate-100">
+              <div className="font-semibold text-sm text-slate-800">{user.fullName}</div>
+              <div className="text-xs text-slate-500">{user.email}</div>
+              <div className="mt-1.5"><StatusBadge variant="danger">SUPER_ADMIN</StatusBadge></div>
+            </div>
+            <button onClick={() => { setProfileOpen(false); toast('Cài đặt — đang xây'); }} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50">
+              <Icon name="settings" className="w-4 h-4 text-slate-400" /> Cài đặt
+            </button>
+            <div className="border-t border-slate-100">
+              <button onClick={() => { setProfileOpen(false); onLogout(); }} className="w-full flex items-center gap-2 px-4 py-2 text-sm text-rose-600 hover:bg-rose-50">
+                <Icon name="logout" className="w-4 h-4" /> Đăng xuất
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </header>
+  );
+};
+
+const DemoBanner = ({ onStartTour }) => {
+  const [hidden, setHidden] = useState(false);
+  if (hidden) return null;
+  return (
+    <div className="bg-gradient-to-r from-rtd-600 via-emerald-600 to-rtd-700 text-white text-sm">
+      <div className="px-6 py-2 flex items-center justify-between gap-4">
+        <div className="flex items-center gap-2 min-w-0">
+          <Icon name="sparkles" className="w-4 h-4 shrink-0" />
+          <span className="font-medium hidden sm:inline">Demo Phase 1 — RTD ERP</span>
+          <span className="opacity-90 truncate">Dữ liệu giả lập · Quản trị + Tài chính – Kế toán</span>
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <button onClick={onStartTour} className="hidden md:inline-flex items-center gap-1 text-xs font-medium bg-white/15 hover:bg-white/25 px-3 py-1 rounded-full">▶ Bắt đầu tour</button>
+          <button onClick={() => setHidden(true)} className="opacity-80 hover:opacity-100"><Icon name="x" className="w-4 h-4" /></button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
+// AI ASSISTANT
+// ============================================================
+
+const AI_SUGGESTIONS = [
+  'Tổng doanh thu tháng này?',
+  'Có hóa đơn nào quá hạn?',
+  'Ai đang chờ duyệt?',
+  'Số dư tiền mặt?',
+  'Lợi nhuận sau thuế?',
+];
+
+const aiAnswer = (q) => {
+  const lower = q.toLowerCase();
+  if (/doanh thu|revenue/.test(lower)) {
+    return 'Doanh thu T5/2026: **2.535.000.000 ₫** (+9.3% so với T4).\n\nCơ cấu theo cty con:\n- RTD Feed: ~7.8 tỷ\n- RTD Farm: ~3.2 tỷ\n- RTD Food: ~1.5 tỷ\n- RTD Vet + Logistics: ~0.6 tỷ';
+  }
+  if (/quá hạn|overdue|công nợ|nợ/.test(lower)) {
+    return 'Có **3 hóa đơn AR** chưa thu hết, tổng dư nợ **1.955.000.000 ₫**.\n\nTop đại lý nợ:\n1. **ĐL Hưng Thịnh** — 1.84 tỷ (hạn mức 2 tỷ)\n2. **ĐL Minh Phú** — 115 triệu (đã trả 1 phần)\n3. **ĐL Tây Nguyên** — 75 triệu';
+  }
+  if (/duyệt|approval|chờ/.test(lower)) {
+    return 'Có **3 yêu cầu** đang chờ duyệt, tổng **13.915 tỷ ₫**:\n- **AR-2026-05-008** · Mua 50 tấn ngô (1.2 tỷ) — chờ KT trưởng\n- **AR-2026-05-009** · HĐ bán cám 215tr — chờ KT trưởng\n- **AR-2026-05-007** · Ngân sách Q2 RTD Feed (12.5 tỷ) — chờ TGĐ';
+  }
+  if (/tiền mặt|tiền gửi|số dư|cash/.test(lower)) {
+    return 'Số dư tại 07/05/2026:\n- **TK 111 (Tiền mặt)**: 850.000.000 ₫\n- **TK 112 (Tiền gửi NH)**: 4.200.000.000 ₫\n- **Tổng tiền**: 5.050.000.000 ₫';
+  }
+  if (/lợi nhuận|lnst|profit/.test(lower)) {
+    return '**LNST lũy kế 5 tháng**: 1.884.000.000 ₫\n\n- Doanh thu: 13.135 tỷ\n- Giá vốn: 9.280 tỷ\n- LN gộp: 3.855 tỷ\n- CP bán hàng + QLDN: 1.500 tỷ\n- Thuế TNDN (20%): 471 triệu';
+  }
+  if (/help|trợ giúp|làm gì|hỏi gì/.test(lower)) {
+    return 'Tôi trả lời được:\n- 💰 Doanh thu, lợi nhuận\n- 📑 Công nợ, hóa đơn quá hạn\n- ✅ Phê duyệt đang chờ\n- 🏦 Số dư tiền mặt/ngân hàng\n- 👥 Người dùng, vai trò';
+  }
+  return 'Mình chưa được train câu này trong demo. Thử hỏi: doanh thu / công nợ / duyệt / tiền mặt / lợi nhuận.\n\n💡 Phase tới sẽ tích hợp **Claude API** để trả lời mọi câu hỏi.';
+};
+
+const formatBubble = (text) => {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((p, i) => p.startsWith('**') && p.endsWith('**') ? <strong key={i}>{p.slice(2, -2)}</strong> : <span key={i}>{p}</span>);
+};
+
+const AiAssistant = () => {
+  const [open, setOpen] = useState(false);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [messages, setMessages] = useState([
+    { role: 'assistant', content: 'Xin chào! Tôi là **RTD AI** — trợ lý dữ liệu. Hãy hỏi tôi về doanh thu, công nợ, phê duyệt, người dùng… (Demo dùng template; phase tới tích hợp Claude API thật)' }
+  ]);
+  const ref = useRef();
+  useEffect(() => { if (ref.current) ref.current.scrollTop = ref.current.scrollHeight; }, [messages, loading]);
+
+  const send = async (q) => {
+    if (!q.trim()) return;
+    setMessages(m => [...m, { role: 'user', content: q }]);
+    setInput('');
+    setLoading(true);
+    await new Promise(r => setTimeout(r, 600));
+    setMessages(m => [...m, { role: 'assistant', content: aiAnswer(q) }]);
+    setLoading(false);
+  };
+
+  return (
+    <>
+      <button onClick={() => setOpen(o => !o)} className={cn('fixed bottom-6 right-6 z-30 w-14 h-14 rounded-full shadow-xl flex items-center justify-center transition-all', open ? 'bg-slate-700 text-white rotate-180' : 'bg-gradient-to-br from-rtd-500 to-emerald-600 text-white hover:scale-110')}>
+        <Icon name={open ? 'x' : 'sparkles'} className="w-6 h-6" />
+      </button>
+      {open && (
+        <div className="fixed bottom-24 right-6 z-30 w-96 max-w-[calc(100vw-3rem)] h-[540px] max-h-[80vh] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col animate-in">
+          <div className="px-4 py-3 border-b border-slate-100 bg-gradient-to-r from-rtd-50 to-emerald-50 rounded-t-2xl flex items-center gap-3">
+            <div className="w-9 h-9 rounded-full bg-gradient-to-br from-rtd-500 to-emerald-600 flex items-center justify-center text-white"><Icon name="sparkles" className="w-4 h-4" /></div>
+            <div>
+              <div className="font-semibold text-slate-800 text-sm">RTD AI Assistant</div>
+              <div className="text-xs text-rtd-700 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-rtd-500 live-dot" />Sẵn sàng · Demo template</div>
+            </div>
+          </div>
+          <div ref={ref} className="flex-1 overflow-y-auto p-4 space-y-3">
+            {messages.map((m, i) => (
+              <div key={i} className={cn('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}>
+                <div className={cn('max-w-[85%] px-3 py-2 rounded-2xl text-sm whitespace-pre-wrap', m.role === 'user' ? 'bg-rtd-600 text-white rounded-br-sm' : 'bg-slate-100 text-slate-800 rounded-bl-sm')}>
+                  {formatBubble(m.content)}
+                </div>
+              </div>
+            ))}
+            {loading && <div className="text-xs text-slate-500">⋯ Đang xử lý…</div>}
+          </div>
+          {messages.length <= 1 && (
+            <div className="px-4 pb-2">
+              <div className="text-xs text-slate-400 mb-1.5">Gợi ý:</div>
+              <div className="flex flex-wrap gap-1.5">
+                {AI_SUGGESTIONS.map(s => <button key={s} onClick={() => send(s)} className="text-xs px-2.5 py-1 bg-slate-100 hover:bg-slate-200 rounded-full text-slate-700">{s}</button>)}
+              </div>
+            </div>
+          )}
+          <form onSubmit={(e) => { e.preventDefault(); send(input); }} className="p-3 border-t border-slate-100 flex gap-2">
+            <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Hỏi về dữ liệu RTD…" className="flex-1 px-3 py-2 text-sm bg-slate-50 border border-transparent rounded-lg focus:outline-none focus:bg-white focus:border-slate-300" disabled={loading} />
+            <button type="submit" disabled={loading || !input.trim()} className="bg-rtd-600 hover:bg-rtd-700 disabled:opacity-50 text-white p-2 rounded-lg"><Icon name="send" className="w-4 h-4" /></button>
+          </form>
+        </div>
+      )}
+    </>
+  );
+};
+
+// ============================================================
+// PAGE: LOGIN
+// ============================================================
+
+const LoginPage = ({ onLogin, toast }) => {
+  const [email, setEmail] = useState('admin@rtd.local');
+  const [password, setPassword] = useState('RtdAdmin@2026');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    await new Promise(r => setTimeout(r, 400));
+    if (password !== 'RtdAdmin@2026') {
+      setError('Mật khẩu không đúng (demo: RtdAdmin@2026)');
+      setLoading(false);
+      return;
+    }
+    onLogin({ email, fullName: 'Quản trị hệ thống' });
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-rtd-50 via-emerald-50 to-rtd-100 px-4">
+      <div className="w-full max-w-md">
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-rtd-600 text-white shadow-lg shadow-rtd-200">
+            <Icon name="leaf" className="w-8 h-8" />
+          </div>
+          <h1 className="mt-4 text-3xl font-bold text-rtd-800">RTD ERP</h1>
+          <p className="text-sm text-slate-500 mt-1">Hệ thống Thông tin Quản lý — Tập đoàn RTD</p>
+        </div>
+        <div className="bg-white rounded-2xl shadow-xl shadow-rtd-100/50 p-8">
+          <h2 className="text-xl font-semibold text-slate-800 mb-1">Đăng nhập</h2>
+          <p className="text-sm text-slate-500 mb-6">Phase 1 — Quản trị &amp; Tài chính</p>
+          <form onSubmit={submit} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Email</label>
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-rtd-500 focus:border-transparent" />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-700 mb-1">Mật khẩu</label>
+              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className="w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-rtd-500 focus:border-transparent" />
+            </div>
+            {error && <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">{error}</div>}
+            <button type="submit" disabled={loading} className="w-full bg-rtd-600 hover:bg-rtd-700 text-white font-medium py-2.5 rounded-lg flex items-center justify-center gap-2 disabled:opacity-60">
+              {loading ? '⋯' : 'Đăng nhập'}
+            </button>
+          </form>
+          <div className="mt-6 pt-6 border-t border-slate-100 text-xs text-slate-500">
+            <span className="font-semibold text-amber-600">⚡ Demo mode:</span> dùng mật khẩu mặc định <code className="bg-slate-100 px-1 rounded">RtdAdmin@2026</code>
+          </div>
+        </div>
+        <div className="text-center text-xs text-slate-400 mt-6">© 2026 Tập đoàn RTD Việt Nam — Demo ERP nội bộ</div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
+// PAGE: DASHBOARD
+// ============================================================
+
+const Dashboard = ({ user, setPage }) => {
+  return (
+    <div>
+      <PageTitle
+        title={`Xin chào, ${user.fullName}!`}
+        subtitle={`Tổng quan tập đoàn — ${new Date().toLocaleDateString('vi-VN', { weekday:'long', day:'2-digit', month:'2-digit', year:'numeric' })}`}
+        actions={<span className="inline-flex items-center gap-1.5 text-xs text-rtd-700 bg-rtd-50 px-2.5 py-1.5 rounded-lg"><span className="w-1.5 h-1.5 rounded-full bg-rtd-500 live-dot" />Hệ thống hoạt động bình thường</span>}
+      />
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        {[
+          { label:'Tổ chức', icon:'building', color:'from-rtd-500 to-emerald-600', shadow:'shadow-rtd-200', page:'orgs' },
+          { label:'Phê duyệt (3)', icon:'checkCircle', color:'from-amber-500 to-orange-600', shadow:'shadow-amber-200', page:'approvals' },
+          { label:'Bút toán mới', icon:'scroll', color:'from-blue-500 to-indigo-600', shadow:'shadow-blue-200', page:'journals' },
+          { label:'Báo cáo TC', icon:'trendUp', color:'from-violet-500 to-purple-600', shadow:'shadow-violet-200', page:'reports' },
+        ].map(q => (
+          <button key={q.label} onClick={() => setPage(q.page)} className="bg-white rounded-xl border border-slate-200 p-4 hover:shadow-md flex items-center gap-3 group">
+            <div className={cn('w-10 h-10 rounded-lg bg-gradient-to-br text-white flex items-center justify-center shadow-md group-hover:scale-105 transition', q.color, q.shadow)}>
+              <Icon name={q.icon} className="w-5 h-5" />
+            </div>
+            <div className="font-medium text-slate-800 text-sm">{q.label}</div>
+          </button>
+        ))}
+      </div>
+
+      <SectionHeader title="Quản trị" icon="shield" onAction={() => setPage('orgs')} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <KpiCard label="Tổ chức" value={String(ORGS.length)} hint="1 Tập đoàn · 5 Cty · 4 CN" icon="building" accent="green" />
+        <KpiCard label="Người dùng" value={String(USERS.length)} hint={`${USERS.filter(u => u.active).length} đang hoạt động`} icon="users" accent="blue" trend={{up:true,value:8.3}} />
+        <KpiCard label="Vai trò" value={String(ROLES.length)} hint="2 hệ thống · 3 tùy chỉnh" icon="shield" accent="amber" />
+        <KpiCard label="Phê duyệt chờ" value="3" hint="Tổng 13.9 tỷ ₫" icon="checkCircle" accent="rose" />
+      </div>
+
+      <SectionHeader title="Tài chính – Kế toán" icon="wallet" onAction={() => setPage('financial')} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <KpiCard label="Doanh thu T5" value={formatVND(2535000000)} icon="trendUp" accent="green" trend={{up:true,value:9.3}} />
+        <KpiCard label="Chi phí T5" value={formatVND(1950000000)} icon="wallet" accent="rose" trend={{up:false,value:7.7}} />
+        <KpiCard label="Phải thu (AR)" value={formatVND(1955000000)} hint="3 hóa đơn quá hạn" icon="receipt" accent="amber" />
+        <KpiCard label="Phải trả (AP)" value={formatVND(320000000)} hint="2 NCC tới hạn 7 ngày" icon="receipt" accent="blue" />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+        <div className="lg:col-span-2 bg-white rounded-xl border border-slate-200 p-5">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h3 className="font-semibold text-slate-800">Doanh thu vs Chi phí — 6 tháng</h3>
+              <p className="text-xs text-slate-500 mt-0.5">Đơn vị: tỷ đồng</p>
+            </div>
+            <button onClick={() => setPage('reports')} className="text-xs text-rtd-600 hover:text-rtd-700">Xem báo cáo →</button>
+          </div>
+          <AreaChart data={TREND.map(t => ({...t, revenue: t.revenue/1000, expense: t.expense/1000}))} />
+          <div className="flex gap-4 text-xs mt-2 justify-center">
+            <span className="flex items-center gap-1.5"><span className="w-3 h-1 rounded bg-rtd-600" />Doanh thu</span>
+            <span className="flex items-center gap-1.5"><span className="w-3 h-1 rounded bg-rose-500" />Chi phí</span>
+          </div>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200 p-5">
+          <h3 className="font-semibold text-slate-800 mb-1">Cơ cấu doanh thu</h3>
+          <p className="text-xs text-slate-500 mb-3">Theo công ty con — T5/2026</p>
+          <div className="flex justify-center"><PieDonut data={COMPANY_REVENUE} size={170} /></div>
+          <div className="space-y-1.5 mt-3">
+            {COMPANY_REVENUE.map(c => (
+              <div key={c.name} className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2"><span className="w-2.5 h-2.5 rounded-sm" style={{background:c.color}} /><span className="text-slate-700">{c.name}</span></div>
+                <span className="text-slate-500 tabular-nums">{c.value} tr</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl border border-slate-200">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+            <h3 className="font-semibold text-slate-800 flex items-center gap-2"><Icon name="checkCircle" className="w-4 h-4 text-amber-600" />Phê duyệt đang chờ</h3>
+            <button onClick={() => setPage('approvals')} className="text-xs text-rtd-600 hover:text-rtd-700">Tất cả →</button>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {APPROVALS.filter(a => a.status === 'PENDING').slice(0, 3).map(a => (
+              <button key={a.id} onClick={() => setPage('approvals')} className="block w-full text-left px-5 py-3 hover:bg-slate-50">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium text-slate-800 truncate">{a.title}</div>
+                    <div className="text-xs text-slate-500 mt-0.5">{a.requester} · Bước {a.currentStep}/{a.totalSteps}</div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-sm font-semibold text-slate-900 tabular-nums">{formatVND(a.amount)}</div>
+                    <StatusBadge variant="warning" dot>Chờ</StatusBadge>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200">
+          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
+            <h3 className="font-semibold text-slate-800">Hoạt động gần đây</h3>
+            <button onClick={() => setPage('audit')} className="text-xs text-rtd-600 hover:text-rtd-700">Tất cả →</button>
+          </div>
+          <div className="divide-y divide-slate-100">
+            {AUDIT_LOGS.slice(0, 5).map((a, i) => <ActivityRow key={i} {...a} />)}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const SectionHeader = ({ title, icon, onAction }) => (
+  <div className="flex items-center justify-between mb-3">
+    <h2 className="text-base font-semibold text-slate-700 flex items-center gap-2 uppercase tracking-wide">
+      <Icon name={icon} className="w-4 h-4" />{title}
+    </h2>
+    <button onClick={onAction} className="text-xs text-rtd-600 hover:text-rtd-700 flex items-center gap-1">Vào module<Icon name="chevronRight" className="w-3 h-3" /></button>
+  </div>
+);
+
+const ActivityRow = ({ actor, action, entity, detail, at }) => {
+  const colors = { CREATE:'bg-rtd-100 text-rtd-700', UPDATE:'bg-blue-100 text-blue-700', DELETE:'bg-rose-100 text-rose-700', APPROVE:'bg-amber-100 text-amber-700' };
+  return (
+    <div className="px-5 py-3 flex items-start gap-3">
+      <span className={cn('text-[10px] font-semibold px-2 py-0.5 rounded uppercase shrink-0', colors[action] || 'bg-slate-100 text-slate-700')}>{action}</span>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm text-slate-700"><span className="font-medium">{actor.split('@')[0]}</span> <span className="text-slate-500">{entity}</span></div>
+        <div className="text-xs text-slate-500 mt-0.5 truncate">{detail}</div>
+        <div className="text-xs text-slate-400 mt-0.5">{at}</div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
+// PAGE: ORGANIZATIONS
+// ============================================================
+
+const buildTree = (orgs) => {
+  const byParent = {};
+  orgs.forEach(o => { (byParent[o.parentId] = byParent[o.parentId] || []).push(o); });
+  const recurse = (pid) => (byParent[pid] || []).map(o => ({ ...o, children: recurse(o.id) }));
+  return recurse(null);
+};
+
+const TYPE_LABEL = { GROUP:'Tập đoàn', COMPANY:'Công ty', BRANCH:'Chi nhánh' };
+
+const OrgRow = ({ node, depth, expanded, toggle, onSelect }) => {
+  const has = node.children.length > 0;
+  const open = expanded[node.id];
+  const variant = node.type === 'GROUP' ? 'success' : node.type === 'COMPANY' ? 'info' : 'neutral';
+  const iconColor = node.type === 'GROUP' ? 'text-rtd-600' : node.type === 'COMPANY' ? 'text-blue-600' : 'text-slate-500';
+  return (
+    <>
+      <div className={cn('flex items-center gap-2 px-3 py-2.5 rounded-lg hover:bg-slate-50', depth === 0 && 'bg-slate-50/50')} style={{paddingLeft: 12 + depth * 24}}>
+        <button onClick={() => has && toggle(node.id)} className="w-5 flex justify-center" disabled={!has}>
+          {has && <Icon name={open ? 'chevronDown' : 'chevronRight'} className="w-4 h-4 text-slate-500" />}
+        </button>
+        <Icon name="building" className={cn('w-4 h-4 shrink-0', iconColor)} />
+        <button onClick={() => onSelect(node)} className={cn('font-medium hover:text-rtd-700 hover:underline', depth === 0 ? 'text-slate-900' : 'text-slate-700')}>{node.name}</button>
+        <code className="text-xs text-slate-400 px-1.5 py-0.5 bg-slate-100 rounded">{node.code}</code>
+        <StatusBadge variant={variant}>{TYPE_LABEL[node.type]}</StatusBadge>
+        {node.taxCode && <span className="text-xs text-slate-400 hidden lg:inline">MST: {node.taxCode}</span>}
+        {node.province && <span className="text-xs text-slate-400 hidden md:inline-flex items-center gap-1 ml-auto"><Icon name="mapPin" className="w-3 h-3" />{node.province}</span>}
+      </div>
+      {has && open && node.children.map(c => <OrgRow key={c.id} node={c} depth={depth + 1} expanded={expanded} toggle={toggle} onSelect={onSelect} />)}
+    </>
+  );
+};
+
+const OrgsPage = ({ orgs, addOrg, toast }) => {
+  const tree = useMemo(() => buildTree(orgs), [orgs]);
+  const [expanded, setExpanded] = useState(() => Object.fromEntries(orgs.filter(o => o.type !== 'BRANCH').map(o => [o.id, true])));
+  const [detail, setDetail] = useState(null);
+  const [createOpen, setCreateOpen] = useState(false);
+  const toggle = (id) => setExpanded(e => ({ ...e, [id]: !e[id] }));
+
+  const counts = {
+    GROUP: orgs.filter(o => o.type === 'GROUP').length,
+    COMPANY: orgs.filter(o => o.type === 'COMPANY').length,
+    BRANCH: orgs.filter(o => o.type === 'BRANCH').length,
+  };
+
+  return (
+    <div>
+      <PageTitle
+        title="Cơ cấu tổ chức"
+        subtitle={`${orgs.length} đơn vị · Tập đoàn → Công ty → Chi nhánh`}
+        actions={<>
+          <button onClick={() => toast('Xuất Excel — đang xây')} className="inline-flex items-center gap-2 bg-white border border-slate-300 hover:border-rtd-400 hover:text-rtd-700 text-slate-700 font-medium px-4 py-2 rounded-lg text-sm">Xuất Excel</button>
+          <button onClick={() => setCreateOpen(true)} className="inline-flex items-center gap-2 bg-rtd-600 hover:bg-rtd-700 text-white font-medium px-4 py-2 rounded-lg text-sm"><Icon name="plus" className="w-4 h-4" />Thêm đơn vị</button>
+        </>}
+      />
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <StatPill label="Tập đoàn" value={counts.GROUP} variant="primary" />
+        <StatPill label="Công ty con" value={counts.COMPANY} variant="info" />
+        <StatPill label="Chi nhánh" value={counts.BRANCH} variant="neutral" />
+        <StatPill label="Đang hoạt động" value={orgs.length} variant="success" />
+      </div>
+      <div className="bg-white rounded-xl border border-slate-200 p-2">
+        {tree.map(n => <OrgRow key={n.id} node={n} depth={0} expanded={expanded} toggle={toggle} onSelect={setDetail} />)}
+      </div>
+
+      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Thêm đơn vị mới" size="lg">
+        <OrgForm onSubmit={(o) => { addOrg(o); setCreateOpen(false); toast(`Đã tạo "${o.name}"`); }} onCancel={() => setCreateOpen(false)} orgs={orgs} />
+      </Modal>
+
+      <Drawer open={!!detail} onClose={() => setDetail(null)} title={detail?.name || ''} subtitle={detail ? `${TYPE_LABEL[detail.type]} · ${detail.code}` : ''}>
+        {detail && (
+          <div className="p-6 space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Mã đơn vị" value={detail.code} mono />
+              <Field label="Loại" value={TYPE_LABEL[detail.type]} />
+              <Field label="Mã số thuế" value={detail.taxCode || '—'} mono />
+              <Field label="Tỉnh / Thành" value={detail.province || '—'} />
+              <Field label="Đơn vị cha" value={detail.parentId ? orgs.find(o => o.id === detail.parentId)?.name : '— (gốc)'} />
+              <Field label="Trạng thái" value="Hoạt động" />
+            </div>
+            <div className="border-t border-slate-100 pt-4">
+              <div className="text-xs font-semibold text-slate-500 uppercase mb-2">Đơn vị con ({orgs.filter(o => o.parentId === detail.id).length})</div>
+              {orgs.filter(o => o.parentId === detail.id).map(c => (
+                <div key={c.id} className="flex items-center gap-2 text-sm py-1"><Icon name="building" className="w-3.5 h-3.5 text-slate-400" /><span className="text-slate-700">{c.name}</span><code className="text-xs text-slate-400">({c.code})</code></div>
+              ))}
+              {orgs.filter(o => o.parentId === detail.id).length === 0 && <div className="text-sm text-slate-400 italic">Không có đơn vị con</div>}
+            </div>
+          </div>
+        )}
+      </Drawer>
+    </div>
+  );
+};
+
+const StatPill = ({ label, value, variant }) => {
+  const styles = { success:'border-rtd-200 bg-rtd-50 text-rtd-800', info:'border-blue-200 bg-blue-50 text-blue-800', neutral:'border-slate-200 bg-slate-50 text-slate-700', primary:'border-violet-200 bg-violet-50 text-violet-800' };
+  return <div className={cn('rounded-xl border p-4', styles[variant])}><div className="text-xs font-medium opacity-80">{label}</div><div className="text-2xl font-bold mt-1 tabular-nums">{value}</div></div>;
+};
+
+const Field = ({ label, value, mono }) => (
+  <div><div className="text-xs text-slate-500 mb-0.5">{label}</div><div className={cn('text-sm text-slate-800', mono && 'font-mono break-all')}>{value}</div></div>
+);
+
+const OrgForm = ({ onSubmit, onCancel, orgs, initial }) => {
+  const [code, setCode] = useState(initial?.code || '');
+  const [name, setName] = useState(initial?.name || '');
+  const [type, setType] = useState(initial?.type || 'COMPANY');
+  const [parentId, setParentId] = useState(initial?.parentId || '');
+  const [taxCode, setTaxCode] = useState(initial?.taxCode || '');
+  const [province, setProvince] = useState(initial?.province || 'Hà Nội');
+  const [err, setErr] = useState('');
+
+  const allowedParents = orgs.filter(o => type === 'COMPANY' ? o.type === 'GROUP' : type === 'BRANCH' ? o.type === 'COMPANY' : false);
+
+  const submit = (e) => {
+    e.preventDefault();
+    if (!/^[A-Z0-9_-]+$/.test(code)) return setErr('Mã chỉ gồm chữ HOA, số, gạch');
+    if (type !== 'GROUP' && !parentId) return setErr('Đơn vị này phải có tổ chức cha');
+    onSubmit({ id: 'new-' + Date.now(), code, name, type, parentId: parentId || null, taxCode, province });
+  };
+
+  return (
+    <form onSubmit={submit} className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div><label className="block text-sm font-medium text-slate-700 mb-1">Mã đơn vị *</label><input value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} required placeholder="VD: RTD-FEED" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-rtd-500" /></div>
+        <div><label className="block text-sm font-medium text-slate-700 mb-1">Loại *</label>
+          <select value={type} onChange={(e) => { setType(e.target.value); if (e.target.value === 'GROUP') setParentId(''); }} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+            <option value="GROUP">Tập đoàn</option><option value="COMPANY">Công ty</option><option value="BRANCH">Chi nhánh</option>
+          </select>
+        </div>
+      </div>
+      <div><label className="block text-sm font-medium text-slate-700 mb-1">Tên đầy đủ *</label><input value={name} onChange={(e) => setName(e.target.value)} required className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /></div>
+      {type !== 'GROUP' && (
+        <div><label className="block text-sm font-medium text-slate-700 mb-1">Trực thuộc *</label>
+          <select value={parentId} onChange={(e) => setParentId(e.target.value)} required className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+            <option value="">— Chọn —</option>
+            {allowedParents.map(p => <option key={p.id} value={p.id}>{p.code} — {p.name}</option>)}
+          </select>
+        </div>
+      )}
+      <div className="grid grid-cols-2 gap-4">
+        <div><label className="block text-sm font-medium text-slate-700 mb-1">Mã số thuế</label><input value={taxCode} onChange={(e) => setTaxCode(e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /></div>
+        <div><label className="block text-sm font-medium text-slate-700 mb-1">Tỉnh</label>
+          <select value={province} onChange={(e) => setProvince(e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+            {PROVINCES.map(p => <option key={p}>{p}</option>)}
+          </select>
+        </div>
+      </div>
+      {err && <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700">{err}</div>}
+      <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
+        <button type="button" onClick={onCancel} className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg">Hủy</button>
+        <button type="submit" className="px-4 py-2 text-sm font-medium bg-rtd-600 hover:bg-rtd-700 text-white rounded-lg">Tạo mới</button>
+      </div>
+    </form>
+  );
+};
+
+// ============================================================
+// PAGE: USERS
+// ============================================================
+
+const ROLE_VARIANT = { SUPER_ADMIN:'danger', ADMIN:'success', ACCOUNTANT:'info', MANAGER_FACTORY:'primary', VIEWER:'neutral' };
+
+const UsersPage = ({ users, toast }) => {
+  const [search, setSearch] = useState('');
+  const [filterRole, setFilterRole] = useState('');
+  const [filterActive, setFilterActive] = useState('all');
+  const [detail, setDetail] = useState(null);
+
+  const filtered = users.filter(u => {
+    if (search && !`${u.email} ${u.fullName}`.toLowerCase().includes(search.toLowerCase())) return false;
+    if (filterRole && !u.roles.includes(filterRole)) return false;
+    if (filterActive === 'active' && !u.active) return false;
+    if (filterActive === 'inactive' && u.active) return false;
+    return true;
+  });
+
+  return (
+    <div>
+      <PageTitle title="Người dùng" subtitle={`${users.length} tài khoản · ${users.filter(u => u.active).length} đang hoạt động`}
+        actions={<button onClick={() => toast('Form thêm người dùng — đang xây')} className="inline-flex items-center gap-2 bg-rtd-600 hover:bg-rtd-700 text-white font-medium px-4 py-2 rounded-lg text-sm"><Icon name="plus" className="w-4 h-4" />Thêm người dùng</button>}
+      />
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="p-3 border-b border-slate-100 flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[240px] max-w-md">
+            <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Tìm theo email hoặc họ tên…" className="w-full pl-9 pr-3 py-1.5 text-sm bg-slate-50 border border-transparent rounded-lg focus:outline-none focus:bg-white focus:border-slate-300" />
+          </div>
+          <Icon name="filter" className="w-4 h-4 text-slate-400" />
+          <select value={filterRole} onChange={(e) => setFilterRole(e.target.value)} className="text-sm border border-slate-200 rounded-lg px-2.5 py-1.5 bg-white">
+            <option value="">Tất cả vai trò</option>
+            {ROLES.map(r => <option key={r.code}>{r.code}</option>)}
+          </select>
+          <div className="flex bg-slate-100 rounded-lg p-0.5 text-xs">
+            {['all','active','inactive'].map(v => (
+              <button key={v} onClick={() => setFilterActive(v)} className={cn('px-3 py-1 rounded', filterActive === v ? 'bg-white text-slate-800 shadow-sm font-medium' : 'text-slate-500')}>{v === 'all' ? 'Tất cả' : v === 'active' ? 'Hoạt động' : 'Tạm khóa'}</button>
+            ))}
+          </div>
+          <div className="ml-auto text-xs text-slate-500">Hiển thị <strong>{filtered.length}</strong>/{users.length}</div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
+              <tr>
+                <th className="text-left font-semibold px-4 py-3">Họ tên</th>
+                <th className="text-left font-semibold px-4 py-3">Email</th>
+                <th className="text-left font-semibold px-4 py-3 hidden md:table-cell">Đơn vị</th>
+                <th className="text-left font-semibold px-4 py-3">Vai trò</th>
+                <th className="text-left font-semibold px-4 py-3 hidden lg:table-cell">Đăng nhập gần nhất</th>
+                <th className="text-center font-semibold px-4 py-3">Trạng thái</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filtered.map(u => (
+                <tr key={u.id} onClick={() => setDetail(u)} className="hover:bg-slate-50 cursor-pointer">
+                  <td className="px-4 py-3 font-medium text-slate-800">{u.fullName}</td>
+                  <td className="px-4 py-3 text-slate-600">{u.email}</td>
+                  <td className="px-4 py-3 text-slate-600 hidden md:table-cell">{u.company}</td>
+                  <td className="px-4 py-3"><div className="flex flex-wrap gap-1">{u.roles.map(r => <StatusBadge key={r} variant={ROLE_VARIANT[r]}>{r}</StatusBadge>)}</div></td>
+                  <td className="px-4 py-3 text-slate-500 text-xs hidden lg:table-cell">{u.lastLogin}</td>
+                  <td className="px-4 py-3 text-center">{u.active ? <Icon name="checkCircle" className="w-4 h-4 text-rtd-600 inline" /> : <Icon name="x" className="w-4 h-4 text-slate-400 inline" />}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <Drawer open={!!detail} onClose={() => setDetail(null)} title={detail?.fullName || ''} subtitle={detail?.email}>
+        {detail && (
+          <div className="p-6 space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <Field label="Email" value={detail.email} mono />
+              <Field label="SĐT" value={detail.phone} />
+              <Field label="Đơn vị" value={detail.company} />
+              <Field label="Đăng nhập cuối" value={detail.lastLogin} />
+            </div>
+            <div className="border-t border-slate-100 pt-4">
+              <div className="text-xs font-semibold text-slate-500 uppercase mb-2">Vai trò ({detail.roles.length})</div>
+              <div className="flex flex-wrap gap-2">{detail.roles.map(r => <StatusBadge key={r} variant={ROLE_VARIANT[r]}>{r}</StatusBadge>)}</div>
+            </div>
+            <div className="border-t border-slate-100 pt-4">
+              <div className="text-xs font-semibold text-slate-500 uppercase mb-2">Bảo mật</div>
+              <div className="space-y-2 text-sm">
+                <Row label="Xác thực 2 lớp (MFA)" value="Chưa bật" />
+                <Row label="Đăng nhập sai liên tiếp" value="0 lần" />
+                <Row label="Phiên đang hoạt động" value="2 thiết bị" />
+              </div>
+            </div>
+          </div>
+        )}
+      </Drawer>
+    </div>
+  );
+};
+
+const Row = ({ label, value }) => <div className="flex justify-between"><span className="text-slate-500">{label}</span><span className="text-slate-800 font-medium">{value}</span></div>;
+
+// ============================================================
+// PAGE: ROLES (RBAC matrix)
+// ============================================================
+
+const PERMISSIONS_BY_RESOURCE = {
+  'master_data.organizations': ['read','write','delete'],
+  'master_data.users': ['read','write','delete'],
+  'master_data.partners': ['read','write'],
+  'financial.journals': ['read','write','post'],
+  'financial.invoices': ['read','write','approve'],
+  'financial.payments': ['read','write'],
+  'financial.budgets': ['read','write','approve'],
+  'financial.reports': ['read','export'],
+  'admin.audit_logs': ['read'],
+  'admin.settings': ['read','write'],
+};
+
+const isGranted = (role, resource, action) => {
+  if (role === 'SUPER_ADMIN') return true;
+  if (role === 'ADMIN') return action !== 'delete';
+  if (role === 'ACCOUNTANT') return resource.startsWith('financial.') || (resource.startsWith('master_data.') && action === 'read');
+  if (role === 'MANAGER_FACTORY') return action === 'read' || action === 'approve';
+  return action === 'read';
+};
+
+const RolesPage = ({ toast }) => {
+  const [selected, setSelected] = useState('SUPER_ADMIN');
+  const role = ROLES.find(r => r.code === selected);
+  return (
+    <div>
+      <PageTitle title="Vai trò & Phân quyền" subtitle={`${ROLES.length} vai trò · ${Object.values(PERMISSIONS_BY_RESOURCE).flat().length} permissions`}
+        actions={<button onClick={() => toast('Tạo role tùy chỉnh — đang xây')} className="inline-flex items-center gap-2 bg-rtd-600 hover:bg-rtd-700 text-white font-medium px-4 py-2 rounded-lg text-sm"><Icon name="plus" className="w-4 h-4" />Tạo vai trò mới</button>}
+      />
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-4">
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 font-semibold text-sm text-slate-800">Danh sách vai trò</div>
+            <div className="divide-y divide-slate-100">
+              {ROLES.map(r => (
+                <button key={r.code} onClick={() => setSelected(r.code)} className={cn('w-full text-left px-4 py-3 hover:bg-slate-50 flex items-start gap-3', selected === r.code && 'bg-rtd-50')}>
+                  <Icon name="shield" className={cn('w-5 h-5 mt-0.5 shrink-0', selected === r.code ? 'text-rtd-600' : 'text-slate-400')} />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-mono text-xs font-semibold text-slate-800">{r.code}</div>
+                    <div className="text-sm text-slate-700 mt-0.5">{r.name}</div>
+                    <div className="text-xs text-slate-500 mt-0.5 truncate">{r.description}</div>
+                    <div className="flex gap-3 mt-1.5 text-xs text-slate-500">
+                      <span><Icon name="users" className="w-3 h-3 inline" /> {r.userCount}</span>
+                      <span><Icon name="check" className="w-3 h-3 inline" /> {r.permCount} quyền</span>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <div className="lg:col-span-8">
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
+              <h3 className="font-semibold text-slate-800">{role.name}</h3>
+              <p className="text-xs text-slate-500 mt-0.5">{role.description}</p>
+            </div>
+            <div className="max-h-[600px] overflow-y-auto">
+              {Object.entries(PERMISSIONS_BY_RESOURCE).map(([resource, actions]) => (
+                <div key={resource} className="border-b border-slate-100">
+                  <div className="px-5 py-2.5 bg-slate-50/50 font-mono text-xs text-slate-600">{resource}</div>
+                  <div className="divide-y divide-slate-50">
+                    {actions.map(action => {
+                      const granted = isGranted(role.code, resource, action);
+                      return (
+                        <div key={action} className="px-5 py-2.5 flex items-center gap-3">
+                          <input type="checkbox" checked={granted} disabled readOnly className="rounded text-rtd-600" />
+                          <div className="flex-1 text-sm text-slate-700"><span className="font-mono text-xs text-slate-400 mr-2">{action}</span></div>
+                          {granted && <StatusBadge variant="success">Có quyền</StatusBadge>}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
+// PAGE: AUDIT LOGS
+// ============================================================
+
+const AuditPage = () => (
+  <div>
+    <PageTitle title="Nhật ký hoạt động" subtitle="Lịch sử thao tác toàn hệ thống — ai làm gì, khi nào, trên đối tượng nào" />
+    <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+      <table className="w-full text-sm">
+        <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
+          <tr>
+            <th className="text-left font-semibold px-4 py-3 w-44">Thời gian</th>
+            <th className="text-left font-semibold px-4 py-3 w-24">Hành động</th>
+            <th className="text-left font-semibold px-4 py-3">Người thực hiện</th>
+            <th className="text-left font-semibold px-4 py-3 w-32">Đối tượng</th>
+            <th className="text-left font-semibold px-4 py-3">Chi tiết</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-slate-100">
+          {AUDIT_LOGS.map((a, i) => {
+            const colors = { CREATE:'bg-rtd-100 text-rtd-700', UPDATE:'bg-blue-100 text-blue-700', DELETE:'bg-rose-100 text-rose-700', APPROVE:'bg-amber-100 text-amber-700' };
+            return (
+              <tr key={i} className="hover:bg-slate-50">
+                <td className="px-4 py-3 text-slate-500 text-xs tabular-nums">{a.at}</td>
+                <td className="px-4 py-3"><span className={cn('text-[10px] font-semibold px-2 py-0.5 rounded uppercase', colors[a.action] || 'bg-slate-100')}>{a.action}</span></td>
+                <td className="px-4 py-3 text-slate-700 font-medium">{a.actor}</td>
+                <td className="px-4 py-3 text-slate-600">{a.entity}</td>
+                <td className="px-4 py-3 text-slate-600">{a.detail}</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  </div>
+);
+
+// ============================================================
+// PAGE: SETTINGS
+// ============================================================
+
+const SettingsPage = ({ toast }) => {
+  const [tab, setTab] = useState('general');
+  const tabs = [
+    { key:'general', label:'Tổng quan', icon:'briefcase' },
+    { key:'accounting', label:'Kế toán', icon:'wallet' },
+    { key:'security', label:'Bảo mật', icon:'shield' },
+    { key:'i18n', label:'Ngôn ngữ', icon:'home' },
+    { key:'email', label:'Email', icon:'send' },
+  ];
+  const settings = {
+    general: [{ k:'company_name', l:'Tên hiển thị', v:'Tập đoàn RTD Việt Nam', t:'text' },{ k:'company_address', l:'Địa chỉ trụ sở', v:'Tầng 12, tòa RTD, Cầu Giấy, Hà Nội', t:'text' }],
+    accounting: [{ k:'fiscal_year_start_month', l:'Tháng bắt đầu năm tài chính', v:'1', t:'number' },{ k:'default_currency', l:'Tiền tệ mặc định', v:'VND', t:'select', options:['VND','USD','EUR','CNY'] },{ k:'tax_rate_default', l:'Thuế suất GTGT (%)', v:'8', t:'number' },{ k:'invoice_due_days', l:'Hạn TT mặc định (ngày)', v:'30', t:'number' }],
+    security: [{ k:'session_timeout_minutes', l:'Timeout phiên (phút)', v:'60', t:'number' },{ k:'mfa_enabled', l:'Bật xác thực 2 lớp (MFA)', v:'false', t:'toggle' },{ k:'password_min_length', l:'Độ dài mật khẩu tối thiểu', v:'12', t:'number' }],
+    i18n: [{ k:'default_locale', l:'Ngôn ngữ mặc định', v:'vi', t:'select', options:['vi','en'] },{ k:'date_format', l:'Định dạng ngày', v:'DD/MM/YYYY', t:'select', options:['DD/MM/YYYY','MM/DD/YYYY','YYYY-MM-DD'] }],
+    email: [{ k:'smtp_host', l:'SMTP Host', v:'mailhog.local', t:'text' },{ k:'smtp_port', l:'SMTP Port', v:'1025', t:'number' },{ k:'smtp_from', l:'Email gửi mặc định', v:'no-reply@rtd.vn', t:'text' }],
+  };
+  return (
+    <div>
+      <PageTitle title="Cài đặt hệ thống" subtitle="14 cấu hình × 5 nhóm · Áp dụng cho toàn tập đoàn" />
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div className="lg:col-span-3">
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            {tabs.map(t => (
+              <button key={t.key} onClick={() => setTab(t.key)} className={cn('w-full flex items-center gap-3 px-4 py-3 text-sm border-l-2', tab === t.key ? 'border-l-rtd-600 bg-rtd-50 text-rtd-700 font-medium' : 'border-l-transparent hover:bg-slate-50 text-slate-700')}>
+                <Icon name={t.icon} className="w-4 h-4" /><span className="flex-1 text-left">{t.label}</span><span className="text-xs text-slate-400">{settings[t.key].length}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="lg:col-span-9">
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <div className="px-6 py-4 border-b border-slate-100 bg-slate-50/50 font-semibold text-slate-800 flex items-center gap-2">
+              <Icon name="settings" className="w-4 h-4" />{tabs.find(t => t.key === tab).label}
+            </div>
+            <div className="divide-y divide-slate-100">
+              {settings[tab].map(s => (
+                <div key={s.k} className="px-6 py-4 grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                  <div className="md:col-span-1">
+                    <div className="text-sm font-medium text-slate-800">{s.l}</div>
+                    <code className="text-[10px] text-slate-400 mt-1 inline-block">{s.k}</code>
+                  </div>
+                  <div className="md:col-span-2">
+                    {s.t === 'toggle' ? (
+                      <label className="inline-flex items-center cursor-pointer">
+                        <input type="checkbox" defaultChecked={s.v === 'true'} className="sr-only peer" onChange={() => toast('Đã lưu (demo)')} />
+                        <div className="relative w-11 h-6 bg-slate-200 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:border after:border-slate-300 after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-rtd-600"></div>
+                      </label>
+                    ) : s.t === 'select' ? (
+                      <select defaultValue={s.v} className="rounded-lg border border-slate-300 px-3 py-2 text-sm max-w-xs">{s.options.map(o => <option key={o}>{o}</option>)}</select>
+                    ) : (
+                      <input type={s.t} defaultValue={s.v} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm max-w-md" />
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
+// PAGE: APPROVALS
+// ============================================================
+
+const APPR_TYPE_ICON = { PURCHASE_ORDER:'file', INVOICE:'receipt', BUDGET:'target', JOURNAL:'scroll' };
+const APPR_TYPE_LABEL = { PURCHASE_ORDER:'Đơn mua', INVOICE:'Hóa đơn', BUDGET:'Ngân sách', JOURNAL:'Bút toán' };
+
+const ApprovalsPage = ({ approvals, decide, toast }) => {
+  const [detail, setDetail] = useState(null);
+  const [comment, setComment] = useState('');
+  const [filter, setFilter] = useState('PENDING');
+
+  const filtered = approvals.filter(a => filter === 'all' || a.status === filter);
+  const pending = approvals.filter(a => a.status === 'PENDING');
+  const approved = approvals.filter(a => a.status === 'APPROVED');
+  const rejected = approvals.filter(a => a.status === 'REJECTED');
+
+  const onDecide = (result) => {
+    if (result === 'REJECTED' && !comment.trim()) {
+      toast('Phải có lý do khi từ chối');
+      return;
+    }
+    decide(detail.id, result, comment);
+    toast(result === 'APPROVED' ? `Đã duyệt ${detail.code}` : `Đã từ chối ${detail.code}`);
+    setDetail(null);
+    setComment('');
+  };
+
+  return (
+    <div>
+      <PageTitle title="Phê duyệt" subtitle={`${pending.length} yêu cầu đang chờ · Tổng giá trị ${formatVND(pending.reduce((s,a) => s + a.amount, 0))}`} />
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        <KpiBox label="Đang chờ" value={pending.length} variant="warning" icon="checkCircle" />
+        <KpiBox label="Đã duyệt (5 ngày)" value={approved.length} variant="success" icon="check" />
+        <KpiBox label="Bị từ chối" value={rejected.length} variant="danger" icon="x" />
+      </div>
+
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="p-3 border-b border-slate-100 flex items-center gap-3">
+          <Icon name="filter" className="w-4 h-4 text-slate-400" />
+          <div className="flex bg-slate-100 rounded-lg p-0.5 text-xs">
+            {[['PENDING','Đang chờ duyệt'],['all','Tất cả']].map(([k,l]) => (
+              <button key={k} onClick={() => setFilter(k)} className={cn('px-3 py-1 rounded', filter === k ? 'bg-white text-slate-800 shadow-sm font-medium' : 'text-slate-500')}>{l}</button>
+            ))}
+          </div>
+        </div>
+        <div className="divide-y divide-slate-100">
+          {filtered.map(a => (
+            <button key={a.id} onClick={() => setDetail(a)} className="w-full text-left px-5 py-4 hover:bg-slate-50 flex items-start gap-4">
+              <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center shrink-0', a.status === 'PENDING' ? 'bg-amber-100 text-amber-700' : a.status === 'APPROVED' ? 'bg-rtd-100 text-rtd-700' : 'bg-rose-100 text-rose-700')}>
+                <Icon name={APPR_TYPE_ICON[a.type]} className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="font-mono text-xs text-slate-500">{a.code}</span>
+                  <StatusBadge variant="neutral">{APPR_TYPE_LABEL[a.type]}</StatusBadge>
+                  <StatusBadge variant={a.status === 'PENDING' ? 'warning' : a.status === 'APPROVED' ? 'success' : 'danger'} dot={a.status === 'PENDING'}>
+                    {a.status === 'PENDING' ? 'Đang chờ' : a.status === 'APPROVED' ? 'Đã duyệt' : 'Từ chối'}
+                  </StatusBadge>
+                </div>
+                <div className="font-medium text-slate-800 mt-1">{a.title}</div>
+                <div className="text-xs text-slate-500 mt-1">YC: <strong>{a.requester}</strong> · {a.submittedAt}{a.status === 'PENDING' && <> · <span className="text-amber-700">Bước {a.currentStep}/{a.totalSteps}: {a.currentApprover}</span></>}</div>
+              </div>
+              <div className="text-right shrink-0">
+                <div className="text-lg font-bold text-slate-900 tabular-nums">{formatVND(a.amount)}</div>
+              </div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <Drawer open={!!detail} onClose={() => { setDetail(null); setComment(''); }} title={detail?.code || ''} subtitle={detail?.type ? APPR_TYPE_LABEL[detail.type] : ''}
+        footer={detail?.status === 'PENDING' && (
+          <div className="space-y-3">
+            <textarea value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Ghi chú / lý do (bắt buộc khi từ chối)…" rows={2} className="w-full px-3 py-2 text-sm border border-slate-200 rounded-lg" />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => onDecide('REJECTED')} className="inline-flex items-center gap-2 bg-rose-600 hover:bg-rose-700 text-white font-medium px-4 py-2 rounded-lg text-sm"><Icon name="x" className="w-4 h-4" />Từ chối</button>
+              <button onClick={() => onDecide('APPROVED')} className="inline-flex items-center gap-2 bg-rtd-600 hover:bg-rtd-700 text-white font-medium px-4 py-2 rounded-lg text-sm"><Icon name="check" className="w-4 h-4" />Duyệt</button>
+            </div>
+          </div>
+        )}
+      >
+        {detail && (
+          <div className="p-6 space-y-6">
+            <div>
+              <div className="text-2xl font-bold text-slate-900">{formatVND(detail.amount)}</div>
+              <div className="text-sm text-slate-700 mt-1">{detail.title}</div>
+            </div>
+            <div className="border-t border-slate-100 pt-4">
+              <div className="text-xs font-semibold text-slate-500 uppercase mb-3">Người yêu cầu</div>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-rtd-100 text-rtd-700 flex items-center justify-center font-semibold">{detail.requester.charAt(0)}</div>
+                <div>
+                  <div className="font-medium text-slate-800">{detail.requester}</div>
+                  <div className="text-xs text-slate-500">{detail.requesterEmail}</div>
+                  <div className="text-xs text-slate-400">Gửi lúc {detail.submittedAt}</div>
+                </div>
+              </div>
+            </div>
+            <div className="border-t border-slate-100 pt-4">
+              <div className="text-xs font-semibold text-slate-500 uppercase mb-3">Lộ trình duyệt</div>
+              <div className="space-y-3">
+                {detail.history.map(h => (
+                  <div key={h.step} className="flex gap-3">
+                    <div className="flex flex-col items-center">
+                      <div className={cn('w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0',
+                        h.result === 'APPROVED' ? 'bg-rtd-100 text-rtd-700' :
+                        h.result === 'REJECTED' ? 'bg-rose-100 text-rose-700' :
+                        h.step === detail.currentStep && detail.status === 'PENDING' ? 'bg-amber-100 text-amber-700 ring-2 ring-amber-300' :
+                        'bg-slate-100 text-slate-400')}>
+                        {h.result === 'APPROVED' ? <Icon name="check" className="w-4 h-4" /> : h.result === 'REJECTED' ? <Icon name="x" className="w-4 h-4" /> : h.step}
+                      </div>
+                      {h.step < detail.history.length && <div className="w-0.5 flex-1 bg-slate-200 my-1 min-h-[20px]" />}
+                    </div>
+                    <div className="flex-1 pb-3">
+                      <div className="font-medium text-slate-800 text-sm">{h.name}</div>
+                      <div className="text-xs text-slate-500">{h.approver}</div>
+                      {h.at && <div className="text-xs text-slate-400 mt-0.5">{h.at}</div>}
+                      {h.comment && <div className="text-xs text-slate-600 mt-1 bg-slate-50 px-2 py-1 rounded italic">"{h.comment}"</div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+      </Drawer>
+    </div>
+  );
+};
+
+const KpiBox = ({ label, value, variant, icon }) => {
+  const styles = {
+    warning:'bg-amber-50 border-amber-200 text-amber-900',
+    success:'bg-rtd-50 border-rtd-200 text-rtd-900',
+    danger:'bg-rose-50 border-rose-200 text-rose-900',
+  };
+  return (
+    <div className={cn('rounded-xl border-2 p-4 flex items-center justify-between', styles[variant])}>
+      <div>
+        <div className="text-xs font-medium opacity-80">{label}</div>
+        <div className="text-3xl font-bold mt-1 tabular-nums">{value}</div>
+      </div>
+      <Icon name={icon} className="w-5 h-5 opacity-60" />
+    </div>
+  );
+};
+
+// ============================================================
+// PAGE: JOURNALS
+// ============================================================
+
+const REF_LABEL = { PURCHASE_INVOICE:'HĐ mua', SALES_INVOICE:'HĐ bán', PAYMENT_RECEIPT:'Phiếu thu', PAYMENT_DISBURSEMENT:'Phiếu chi', MANUAL:'Thủ công' };
+
+const JournalsPage = ({ journals, addJournal, toast }) => {
+  const [createOpen, setCreateOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const [filterStatus, setFilterStatus] = useState('all');
+
+  const filtered = journals.filter(j => {
+    if (search && !`${j.code} ${j.description}`.toLowerCase().includes(search.toLowerCase())) return false;
+    if (filterStatus !== 'all' && j.status !== filterStatus) return false;
+    return true;
+  });
+  const totalDebit = filtered.reduce((s, j) => s + j.totalDebit, 0);
+  const totalCredit = filtered.reduce((s, j) => s + j.totalCredit, 0);
+
+  return (
+    <div>
+      <PageTitle title="Sổ nhật ký" subtitle={`${journals.length} bút toán · Cân đối Nợ = Có`}
+        actions={<button onClick={() => setCreateOpen(true)} className="inline-flex items-center gap-2 bg-rtd-600 hover:bg-rtd-700 text-white font-medium px-4 py-2 rounded-lg text-sm"><Icon name="plus" className="w-4 h-4" />Tạo bút toán</button>}
+      />
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <div className="p-3 border-b border-slate-100 flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[240px] max-w-md">
+            <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Tìm theo mã hoặc diễn giải…" className="w-full pl-9 pr-3 py-1.5 text-sm bg-slate-50 border border-transparent rounded-lg focus:outline-none focus:bg-white focus:border-slate-300" />
+          </div>
+          <div className="flex bg-slate-100 rounded-lg p-0.5 text-xs">
+            {[['all','Tất cả'],['POSTED','Đã ghi sổ'],['DRAFT','Nháp']].map(([k,l]) => (
+              <button key={k} onClick={() => setFilterStatus(k)} className={cn('px-3 py-1 rounded', filterStatus === k ? 'bg-white text-slate-800 shadow-sm font-medium' : 'text-slate-500')}>{l}</button>
+            ))}
+          </div>
+          <div className="ml-auto text-xs text-slate-500">Hiển thị <strong>{filtered.length}</strong>/{journals.length}</div>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
+              <tr>
+                <th className="text-left font-semibold px-4 py-3">Mã</th>
+                <th className="text-left font-semibold px-4 py-3 w-28">Ngày</th>
+                <th className="text-left font-semibold px-4 py-3">Diễn giải</th>
+                <th className="text-left font-semibold px-4 py-3 w-28">Loại</th>
+                <th className="text-right font-semibold px-4 py-3 w-40">Tổng nợ</th>
+                <th className="text-right font-semibold px-4 py-3 w-40">Tổng có</th>
+                <th className="text-center font-semibold px-4 py-3 w-32">Trạng thái</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {filtered.map(j => (
+                <tr key={j.id} className="hover:bg-slate-50">
+                  <td className="px-4 py-3 font-mono text-xs text-slate-700">{j.code}</td>
+                  <td className="px-4 py-3 text-slate-500 text-xs">{j.date}</td>
+                  <td className="px-4 py-3 text-slate-700">{j.description}</td>
+                  <td className="px-4 py-3"><span className="text-xs text-slate-600 bg-slate-100 px-2 py-0.5 rounded">{REF_LABEL[j.refType]}</span></td>
+                  <td className="px-4 py-3 text-right tabular-nums text-slate-800">{formatVND(j.totalDebit)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-slate-800">{formatVND(j.totalCredit)}</td>
+                  <td className="px-4 py-3 text-center"><StatusBadge variant={j.status === 'POSTED' ? 'success' : 'warning'}>{j.status === 'POSTED' ? 'Đã ghi sổ' : 'Nháp'}</StatusBadge></td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="bg-slate-50 font-semibold">
+              <tr>
+                <td colSpan={4} className="px-4 py-3 text-slate-600">Tổng cộng</td>
+                <td className="px-4 py-3 text-right tabular-nums">{formatVND(totalDebit)}</td>
+                <td className="px-4 py-3 text-right tabular-nums">{formatVND(totalCredit)}</td>
+                <td className="px-4 py-3 text-center text-rtd-700 text-xs">{Math.abs(totalDebit - totalCredit) < 0.01 ? '✓ Cân đối' : '⚠ Lệch'}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+      <Modal open={createOpen} onClose={() => setCreateOpen(false)} title="Tạo bút toán mới" description="Nhập tối thiểu 2 dòng (1 Nợ, 1 Có) — hệ thống tự kiểm tra cân đối" size="2xl">
+        <JournalForm onSubmit={(j) => { addJournal(j); setCreateOpen(false); toast(`Đã tạo bút toán ${j.code}`); }} onCancel={() => setCreateOpen(false)} />
+      </Modal>
+    </div>
+  );
+};
+
+const JournalForm = ({ onSubmit, onCancel }) => {
+  const today = new Date().toISOString().slice(0, 10);
+  const [date, setDate] = useState(today);
+  const [refType, setRefType] = useState('MANUAL');
+  const [description, setDescription] = useState('');
+  const [lines, setLines] = useState([
+    { id:1, account:'', desc:'', debit:'', credit:'' },
+    { id:2, account:'', desc:'', debit:'', credit:'' },
+  ]);
+
+  const totalDebit = lines.reduce((s, l) => s + (parseFloat(l.debit) || 0), 0);
+  const totalCredit = lines.reduce((s, l) => s + (parseFloat(l.credit) || 0), 0);
+  const balance = totalDebit - totalCredit;
+  const balanced = Math.abs(balance) < 0.001 && totalDebit > 0;
+
+  const addLine = () => setLines(l => [...l, { id:Date.now(), account:'', desc:'', debit:'', credit:'' }]);
+  const removeLine = (id) => { if (lines.length > 2) setLines(l => l.filter(x => x.id !== id)); };
+  const updateLine = (id, patch) => setLines(l => l.map(x => {
+    if (x.id !== id) return x;
+    const n = { ...x, ...patch };
+    if (patch.debit !== undefined && parseFloat(patch.debit) > 0) n.credit = '';
+    if (patch.credit !== undefined && parseFloat(patch.credit) > 0) n.debit = '';
+    return n;
+  }));
+
+  const submit = (e) => {
+    e.preventDefault();
+    if (!balanced) return;
+    if (!description.trim()) return;
+    if (lines.some(l => !l.account)) return;
+    const code = `JV-${date.replace(/-/g,'').slice(2)}-${String(Date.now()).slice(-3)}`;
+    onSubmit({ id:'new-' + Date.now(), code, date: date.split('-').reverse().join('/'), description, refType, totalDebit, totalCredit, status:'DRAFT' });
+  };
+
+  return (
+    <form onSubmit={submit} className="space-y-4">
+      <div className="grid grid-cols-3 gap-4">
+        <div><label className="block text-sm font-medium text-slate-700 mb-1">Ngày *</label><input type="date" value={date} onChange={(e) => setDate(e.target.value)} required className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /></div>
+        <div><label className="block text-sm font-medium text-slate-700 mb-1">Loại</label>
+          <select value={refType} onChange={(e) => setRefType(e.target.value)} className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">
+            {Object.entries(REF_LABEL).map(([k,v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+        </div>
+        <div><label className="block text-sm font-medium text-slate-700 mb-1">Mã (tự sinh)</label><input value="JV-AUTO" disabled className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm bg-slate-50 text-slate-400" /></div>
+      </div>
+      <div><label className="block text-sm font-medium text-slate-700 mb-1">Diễn giải *</label><input value={description} onChange={(e) => setDescription(e.target.value)} required placeholder="VD: Mua nguyên liệu ngô vàng nhập kho NM Hà Nam" className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm" /></div>
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className="text-sm font-medium text-slate-700">Chi tiết bút toán</label>
+          <button type="button" onClick={addLine} className="text-sm text-rtd-600 hover:text-rtd-700 inline-flex items-center gap-1"><Icon name="plus" className="w-3.5 h-3.5" />Thêm dòng</button>
+        </div>
+        <div className="border border-slate-200 rounded-lg overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
+              <tr><th className="text-left font-semibold px-3 py-2">Tài khoản</th><th className="text-left font-semibold px-3 py-2">Diễn giải</th><th className="text-right font-semibold px-3 py-2 w-32">Nợ</th><th className="text-right font-semibold px-3 py-2 w-32">Có</th><th className="w-10"></th></tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {lines.map(line => (
+                <tr key={line.id}>
+                  <td className="px-2 py-1.5"><select value={line.account} onChange={(e) => updateLine(line.id, { account:e.target.value })} className="w-full px-2 py-1 text-sm border border-slate-200 rounded"><option value="">— Chọn TK —</option>{ACCOUNTS.map(a => <option key={a.code} value={a.code}>{a.code} — {a.name}</option>)}</select></td>
+                  <td className="px-2 py-1.5"><input value={line.desc} onChange={(e) => updateLine(line.id, { desc:e.target.value })} placeholder="Ghi chú dòng" className="w-full px-2 py-1 text-sm border border-slate-200 rounded" /></td>
+                  <td className="px-2 py-1.5"><input type="number" value={line.debit} onChange={(e) => updateLine(line.id, { debit:e.target.value })} placeholder="0" className="w-full px-2 py-1 text-sm border border-slate-200 rounded text-right tabular-nums" /></td>
+                  <td className="px-2 py-1.5"><input type="number" value={line.credit} onChange={(e) => updateLine(line.id, { credit:e.target.value })} placeholder="0" className="w-full px-2 py-1 text-sm border border-slate-200 rounded text-right tabular-nums" /></td>
+                  <td className="px-1"><button type="button" onClick={() => removeLine(line.id)} className="p-1 rounded hover:bg-rose-50 text-slate-400 hover:text-rose-600"><Icon name="trash" className="w-3.5 h-3.5" /></button></td>
+                </tr>
+              ))}
+            </tbody>
+            <tfoot className="bg-slate-50 font-semibold text-sm">
+              <tr><td colSpan={2} className="px-3 py-2 text-right text-slate-600">Tổng</td><td className="px-3 py-2 text-right tabular-nums">{formatNumber(totalDebit)}</td><td className="px-3 py-2 text-right tabular-nums">{formatNumber(totalCredit)}</td><td></td></tr>
+            </tfoot>
+          </table>
+        </div>
+        <div className="mt-2">
+          {balanced ? <div className="text-xs text-rtd-700 bg-rtd-50 rounded px-3 py-1.5 inline-block">✓ Cân đối: Nợ = Có = {formatVND(totalDebit)}</div>
+            : Math.abs(balance) > 0 ? <div className="text-xs text-rose-700 bg-rose-50 rounded px-3 py-1.5 inline-block">⚠ Chênh lệch: {formatVND(Math.abs(balance))} {balance > 0 ? '(Nợ > Có)' : '(Có > Nợ)'}</div>
+            : null}
+        </div>
+      </div>
+      <div className="flex justify-end gap-2 pt-4 border-t border-slate-100">
+        <button type="button" onClick={onCancel} className="px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-100 rounded-lg">Hủy</button>
+        <button type="submit" disabled={!balanced} className="px-4 py-2 text-sm font-medium bg-rtd-600 hover:bg-rtd-700 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed">Lưu nháp</button>
+      </div>
+    </form>
+  );
+};
+
+// ============================================================
+// PAGE: INVOICES
+// ============================================================
+
+const INV_STATUS = { PAID:['success','Đã thanh toán'], PARTIAL_PAID:['warning','Thanh toán 1 phần'], ISSUED:['info','Đã phát hành'], DRAFT:['neutral','Nháp'] };
+
+const InvoicesPage = ({ toast }) => {
+  const sales = INVOICES.filter(i => i.type === 'SALES');
+  const purchase = INVOICES.filter(i => i.type === 'PURCHASE');
+  const totalSales = sales.reduce((s, i) => s + i.total, 0);
+  const totalPurchase = purchase.reduce((s, i) => s + i.total, 0);
+  const ar = sales.reduce((s, i) => s + (i.total - i.paid), 0);
+  const ap = purchase.reduce((s, i) => s + (i.total - i.paid), 0);
+  return (
+    <div>
+      <PageTitle title="Hóa đơn" subtitle={`${INVOICES.length} hóa đơn (${sales.length} bán + ${purchase.length} mua)`}
+        actions={<button onClick={() => toast('Form tạo HĐ — đang xây')} className="inline-flex items-center gap-2 bg-rtd-600 hover:bg-rtd-700 text-white font-medium px-4 py-2 rounded-lg text-sm"><Icon name="plus" className="w-4 h-4" />Tạo hóa đơn</button>}
+      />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <SumCard label="Tổng HĐ bán" value={formatVND(totalSales)} hint={`${sales.length} hóa đơn`} accent="green" />
+        <SumCard label="Phải thu" value={formatVND(ar)} hint="Chưa thu hết" accent="amber" />
+        <SumCard label="Tổng HĐ mua" value={formatVND(totalPurchase)} hint={`${purchase.length} hóa đơn`} accent="blue" />
+        <SumCard label="Phải trả" value={formatVND(ap)} hint="Chưa trả hết" accent="rose" />
+      </div>
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 text-xs text-slate-500 uppercase">
+            <tr>
+              <th className="text-left font-semibold px-4 py-3">Số hóa đơn</th>
+              <th className="text-left font-semibold px-4 py-3">Loại</th>
+              <th className="text-left font-semibold px-4 py-3">Đối tác</th>
+              <th className="text-left font-semibold px-4 py-3">Ngày HĐ</th>
+              <th className="text-left font-semibold px-4 py-3">Hạn TT</th>
+              <th className="text-right font-semibold px-4 py-3">Tổng tiền</th>
+              <th className="text-right font-semibold px-4 py-3">Còn lại</th>
+              <th className="text-center font-semibold px-4 py-3">Trạng thái</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-slate-100">
+            {INVOICES.map(inv => {
+              const [variant, label] = INV_STATUS[inv.status] || ['neutral', inv.status];
+              return (
+                <tr key={inv.id} className="hover:bg-slate-50">
+                  <td className="px-4 py-3 font-mono text-xs text-slate-700">{inv.code}</td>
+                  <td className="px-4 py-3"><StatusBadge variant={inv.type === 'SALES' ? 'success' : 'info'}>{inv.type === 'SALES' ? 'Bán' : 'Mua'}</StatusBadge></td>
+                  <td className="px-4 py-3 text-slate-700">{inv.partner}</td>
+                  <td className="px-4 py-3 text-slate-500 text-xs">{inv.date}</td>
+                  <td className="px-4 py-3 text-slate-500 text-xs">{inv.due}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-slate-800">{formatVND(inv.total)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{inv.total > inv.paid ? <span className="text-rose-600 font-medium">{formatVND(inv.total - inv.paid)}</span> : <span className="text-slate-400">—</span>}</td>
+                  <td className="px-4 py-3 text-center"><StatusBadge variant={variant}>{label}</StatusBadge></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+const SumCard = ({ label, value, hint, accent }) => {
+  const colors = { green:'border-l-rtd-500', blue:'border-l-blue-500', amber:'border-l-amber-500', rose:'border-l-rose-500' };
+  return (
+    <div className={cn('bg-white rounded-xl border border-slate-200 border-l-4 p-4', colors[accent])}>
+      <div className="text-xs text-slate-500 font-medium">{label}</div>
+      <div className="text-xl font-bold text-slate-900 mt-1 tabular-nums">{value}</div>
+      <div className="text-xs text-slate-400 mt-0.5">{hint}</div>
+    </div>
+  );
+};
+
+// ============================================================
+// PAGE: FINANCIAL OVERVIEW
+// ============================================================
+
+const FinancialOverview = ({ setPage }) => (
+  <div>
+    <PageTitle title="Tổng quan Tài chính – Kế toán" subtitle="Doanh thu, chi phí, công nợ — toàn tập đoàn, tháng 5/2026" />
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <KpiCard label="Doanh thu T5" value={formatVND(2535000000)} icon="trendUp" accent="green" trend={{up:true,value:9.3}} />
+      <KpiCard label="Chi phí T5" value={formatVND(1950000000)} icon="trendDown" accent="rose" trend={{up:false,value:7.7}} />
+      <KpiCard label="Phải thu (AR)" value={formatVND(1955000000)} hint="3 hóa đơn quá hạn" icon="receipt" accent="amber" />
+      <KpiCard label="Phải trả (AP)" value={formatVND(320000000)} hint="2 NCC tới hạn 7 ngày" icon="wallet" accent="blue" />
+    </div>
+    <div className="bg-white rounded-xl border border-slate-200 p-5 mb-6">
+      <h3 className="font-semibold text-slate-800 mb-1">Doanh thu vs Chi phí — 6 tháng gần nhất</h3>
+      <p className="text-xs text-slate-500 mb-4">Đơn vị: tỷ đồng</p>
+      <AreaChart data={TREND.map(t => ({...t, revenue:t.revenue/1000, expense:t.expense/1000}))} />
+    </div>
+    <div className="bg-white rounded-xl border border-slate-200 p-5">
+      <h3 className="font-semibold text-slate-800 mb-3">Cơ cấu doanh thu theo công ty con</h3>
+      <BarChart items={COMPANY_REVENUE.map(c => ({ label:c.name, value:c.value, color:c.color, display: formatVND(c.value * 1000000) }))} />
+    </div>
+  </div>
+);
+
+// ============================================================
+// PAGE: CHART OF ACCOUNTS (TT200)
+// ============================================================
+
+const COA = [
+  {code:'11', name:'Tiền và TĐ tiền', type:'ASSET', parent:null, isLeaf:false, balance:5050000000},
+  {code:'111', name:'Tiền mặt', type:'ASSET', parent:'11', isLeaf:true, balance:850000000},
+  {code:'112', name:'Tiền gửi NH', type:'ASSET', parent:'11', isLeaf:true, balance:4200000000},
+  {code:'13', name:'Phải thu', type:'ASSET', parent:null, isLeaf:false, balance:1955000000},
+  {code:'131', name:'Phải thu KH', type:'ASSET', parent:'13', isLeaf:true, balance:1955000000},
+  {code:'15', name:'Hàng tồn kho', type:'ASSET', parent:null, isLeaf:false, balance:3460000000},
+  {code:'152', name:'Nguyên vật liệu', type:'ASSET', parent:'15', isLeaf:true, balance:2340000000},
+  {code:'155', name:'Thành phẩm', type:'ASSET', parent:'15', isLeaf:true, balance:1120000000},
+  {code:'21', name:'TSCĐ', type:'ASSET', parent:null, isLeaf:false, balance:15255000000},
+  {code:'211', name:'TSCĐ hữu hình', type:'ASSET', parent:'21', isLeaf:true, balance:18500000000},
+  {code:'214', name:'Hao mòn TSCĐ', type:'ASSET', parent:'21', isLeaf:true, balance:-3245000000},
+  {code:'33', name:'Phải trả', type:'LIABILITY', parent:null, isLeaf:false, balance:605000000},
+  {code:'331', name:'Phải trả NB', type:'LIABILITY', parent:'33', isLeaf:true, balance:320000000},
+  {code:'334', name:'Phải trả NLĐ', type:'LIABILITY', parent:'33', isLeaf:true, balance:285000000},
+  {code:'41', name:'Vốn chủ sở hữu', type:'EQUITY', parent:null, isLeaf:false, balance:25115000000},
+  {code:'411', name:'Vốn góp CSH', type:'EQUITY', parent:'41', isLeaf:true, balance:20000000000},
+  {code:'421', name:'LNST chưa phân phối', type:'EQUITY', parent:'41', isLeaf:true, balance:5115000000},
+  {code:'51', name:'Doanh thu', type:'REVENUE', parent:null, isLeaf:false, balance:13135000000},
+  {code:'511', name:'Doanh thu BH', type:'REVENUE', parent:'51', isLeaf:true, balance:13135000000},
+  {code:'63', name:'Giá vốn', type:'EXPENSE', parent:null, isLeaf:false, balance:9280000000},
+  {code:'632', name:'Giá vốn HB', type:'EXPENSE', parent:'63', isLeaf:true, balance:9280000000},
+  {code:'64', name:'CP kinh doanh', type:'EXPENSE', parent:null, isLeaf:false, balance:1500000000},
+  {code:'641', name:'CP bán hàng', type:'EXPENSE', parent:'64', isLeaf:true, balance:580000000},
+  {code:'642', name:'CP QLDN', type:'EXPENSE', parent:'64', isLeaf:true, balance:920000000},
+];
+
+const ACC_TYPE = { ASSET:['success','Tài sản'], LIABILITY:['warning','Nợ phải trả'], EQUITY:['primary','Vốn CSH'], REVENUE:['info','Doanh thu'], EXPENSE:['danger','Chi phí'] };
+
+const ChartOfAccountsPage = () => {
+  const [expanded, setExpanded] = useState(() => Object.fromEntries(COA.filter(a => !a.isLeaf).map(a => [a.code, true])));
+  const toggle = (c) => setExpanded(e => ({ ...e, [c]: !e[c] }));
+  const tree = useMemo(() => {
+    const byParent = {};
+    COA.forEach(a => { (byParent[a.parent] = byParent[a.parent] || []).push(a); });
+    const recurse = (p) => (byParent[p] || []).map(a => ({ ...a, children: recurse(a.code) }));
+    return recurse(null);
+  }, []);
+
+  const stats = ['ASSET','LIABILITY','EQUITY','REVENUE','EXPENSE'].map(t => ({
+    type: t, label: ACC_TYPE[t][1],
+    total: COA.filter(a => a.type === t && a.isLeaf).reduce((s, a) => s + a.balance, 0),
+  }));
+
+  const renderRow = (node, depth) => {
+    const has = node.children.length > 0;
+    const open = expanded[node.code];
+    const [variant] = ACC_TYPE[node.type];
+    return (
+      <React.Fragment key={node.code}>
+        <tr className={cn('hover:bg-slate-50', depth === 0 && 'bg-slate-50/50 font-medium')}>
+          <td className="px-4 py-2.5">
+            <div className="flex items-center gap-2" style={{paddingLeft: depth * 20}}>
+              <button onClick={() => has && toggle(node.code)} className="w-4">{has && <Icon name={open ? 'chevronDown' : 'chevronRight'} className="w-3.5 h-3.5 text-slate-400" />}</button>
+              <span className="font-mono text-xs text-slate-500 w-10">{node.code}</span>
+              <span className="text-slate-800">{node.name}</span>
+              {!node.isLeaf && <span className="text-[10px] text-slate-400 italic">(tổng hợp)</span>}
+            </div>
+          </td>
+          <td className="px-4 py-2.5"><StatusBadge variant={variant}>{ACC_TYPE[node.type][1]}</StatusBadge></td>
+          <td className="px-4 py-2.5 text-right tabular-nums"><span className={cn(node.balance < 0 && 'text-rose-600')}>{formatVND(node.balance)}</span></td>
+        </tr>
+        {has && open && node.children.map(c => renderRow(c, depth + 1))}
+      </React.Fragment>
+    );
+  };
+
+  return (
+    <div>
+      <PageTitle title="Hệ thống tài khoản" subtitle={`${COA.length} tài khoản · Theo TT200 (rút gọn)`} />
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-6">
+        {stats.map(s => {
+          const [variant] = ACC_TYPE[s.type];
+          const styles = { success:'border-rtd-200 bg-rtd-50', warning:'border-amber-200 bg-amber-50', primary:'border-violet-200 bg-violet-50', info:'border-blue-200 bg-blue-50', danger:'border-rose-200 bg-rose-50' };
+          return (
+            <div key={s.type} className={cn('rounded-lg border p-3', styles[variant])}>
+              <div className="text-xs text-slate-600 font-medium">{s.label}</div>
+              <div className="text-base font-bold text-slate-900 mt-0.5 tabular-nums">{formatVND(s.total)}</div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 text-xs text-slate-500 uppercase"><tr><th className="text-left font-semibold px-4 py-3">Mã & Tên</th><th className="text-left font-semibold px-4 py-3 w-40">Loại</th><th className="text-right font-semibold px-4 py-3 w-44">Số dư</th></tr></thead>
+          <tbody className="divide-y divide-slate-100">{tree.map(n => renderRow(n, 0))}</tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
+// PAGE: REPORTS (BS + IS, with print)
+// ============================================================
+
+const ReportsPage = ({ toast }) => {
+  const handlePrint = () => { toast('Mở dialog in — chọn "Lưu thành PDF"'); setTimeout(() => window.print(), 300); };
+  const BS_ASSET = [
+    {code:'111',name:'Tiền mặt',amount:850000000},{code:'112',name:'Tiền gửi NH',amount:4200000000},
+    {code:'131',name:'Phải thu KH',amount:1955000000},{code:'152',name:'Nguyên vật liệu',amount:2340000000},
+    {code:'155',name:'Thành phẩm',amount:1120000000},{code:'211',name:'TSCĐ hữu hình',amount:18500000000},
+    {code:'214',name:'— Hao mòn TSCĐ',amount:-3245000000},
+  ];
+  const BS_LIA = [
+    {code:'331',name:'Phải trả NB',amount:320000000},{code:'334',name:'Phải trả NLĐ',amount:285000000},
+    {code:'411',name:'Vốn góp CSH',amount:20000000000},{code:'421',name:'LNST chưa phân phối',amount:5115000000},
+  ];
+  const IS = [
+    {code:'511',name:'Doanh thu BH',amount:13135000000},{code:'632',name:'Giá vốn HB',amount:9280000000},
+    {code:'521',name:'LN gộp',amount:3855000000,bold:true},
+    {code:'641',name:'CP bán hàng',amount:580000000},{code:'642',name:'CP QLDN',amount:920000000},
+    {code:'600',name:'LN thuần HĐKD',amount:2355000000,bold:true},
+    {code:'821',name:'Thuế TNDN (20%)',amount:471000000},
+    {code:'900',name:'Lợi nhuận sau thuế',amount:1884000000,bold:true,highlight:true},
+  ];
+  const totalAsset = BS_ASSET.reduce((s, i) => s + i.amount, 0);
+  const totalEquity = BS_LIA.reduce((s, i) => s + i.amount, 0);
+
+  return (
+    <div>
+      <div className="print-only mb-6">
+        <h1 className="text-2xl font-bold">TẬP ĐOÀN RTD VIỆT NAM</h1>
+        <div className="text-sm">Báo cáo tài chính · Lũy kế 5 tháng đầu năm 2026</div>
+        <div className="text-xs text-slate-500 mt-1">In ngày: {new Date().toLocaleDateString('vi-VN')}</div>
+      </div>
+      <div className="no-print">
+        <PageTitle title="Báo cáo Tài chính" subtitle="Bảng cân đối kế toán & Kết quả kinh doanh — Lũy kế 5 tháng đầu 2026"
+          actions={<>
+            <button onClick={() => toast('Xuất Excel — đang xây')} className="inline-flex items-center gap-2 bg-white border border-slate-300 hover:border-rtd-400 hover:text-rtd-700 text-slate-700 font-medium px-4 py-2 rounded-lg text-sm"><Icon name="file" className="w-4 h-4" />Excel</button>
+            <button onClick={handlePrint} className="inline-flex items-center gap-2 bg-rtd-600 hover:bg-rtd-700 text-white font-medium px-4 py-2 rounded-lg text-sm"><Icon name="printer" className="w-4 h-4" />In / Xuất PDF</button>
+          </>}
+        />
+      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
+            <h3 className="font-semibold text-slate-800">Bảng cân đối kế toán</h3>
+            <p className="text-xs text-slate-500 mt-0.5">Tại ngày 31/05/2026</p>
+          </div>
+          <table className="w-full text-sm">
+            <tbody className="divide-y divide-slate-100">
+              <tr className="bg-slate-50"><td colSpan={3} className="px-4 py-2 text-xs font-semibold text-slate-700 uppercase">TÀI SẢN</td></tr>
+              {BS_ASSET.map(i => <tr key={i.code}><td className="px-4 py-2 font-mono text-xs text-slate-500 w-12">{i.code}</td><td className="px-4 py-2 text-slate-700">{i.name}</td><td className="px-4 py-2 text-right tabular-nums text-slate-800">{formatVND(i.amount)}</td></tr>)}
+              <tr className="bg-rtd-50 font-semibold"><td></td><td className="px-4 py-2 text-rtd-800 text-xs uppercase">Tổng tài sản</td><td className="px-4 py-2 text-right tabular-nums text-rtd-900">{formatVND(totalAsset)}</td></tr>
+              <tr className="bg-slate-50"><td colSpan={3} className="px-4 py-2 text-xs font-semibold text-slate-700 uppercase">NGUỒN VỐN</td></tr>
+              {BS_LIA.map(i => <tr key={i.code}><td className="px-4 py-2 font-mono text-xs text-slate-500 w-12">{i.code}</td><td className="px-4 py-2 text-slate-700">{i.name}</td><td className="px-4 py-2 text-right tabular-nums text-slate-800">{formatVND(i.amount)}</td></tr>)}
+              <tr className="bg-rtd-50 font-semibold"><td></td><td className="px-4 py-2 text-rtd-800 text-xs uppercase">Tổng nguồn vốn</td><td className="px-4 py-2 text-right tabular-nums text-rtd-900">{formatVND(totalEquity)}</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          <div className="px-5 py-4 border-b border-slate-100 bg-slate-50">
+            <h3 className="font-semibold text-slate-800">Kết quả kinh doanh</h3>
+            <p className="text-xs text-slate-500 mt-0.5">Lũy kế từ 01/01 đến 31/05/2026</p>
+          </div>
+          <table className="w-full text-sm">
+            <tbody className="divide-y divide-slate-100">
+              {IS.map(r => (
+                <tr key={r.code} className={r.highlight ? 'bg-rtd-50' : ''}>
+                  <td className="px-4 py-2 font-mono text-xs text-slate-500 w-12">{r.code}</td>
+                  <td className={cn('px-4 py-2', r.bold ? 'font-semibold text-slate-900' : 'text-slate-700')}>{r.name}</td>
+                  <td className={cn('px-4 py-2 text-right tabular-nums', r.bold ? 'font-semibold text-slate-900' : 'text-slate-800', r.highlight && 'text-rtd-700')}>{formatVND(r.amount)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
+// SIMPLE STUB PAGES (Partners, Payments, Cost Centers, Budgets)
+// ============================================================
+
+const PartnersPage = ({ toast }) => {
+  const PARTNERS = [
+    { code:'CUS-001', name:'ĐL Sơn Hùng', type:'CUSTOMER', province:'TP.HCM', debt:0, limit:800000000, term:30 },
+    { code:'CUS-002', name:'ĐL Minh Phú', type:'CUSTOMER', province:'Hà Nội', debt:115000000, limit:500000000, term:30 },
+    { code:'CUS-003', name:'ĐL Hưng Thịnh', type:'CUSTOMER', province:'Bắc Giang', debt:1840000000, limit:2000000000, term:45 },
+    { code:'CUS-004', name:'ĐL Nam Thành', type:'CUSTOMER', province:'Thanh Hóa', debt:0, limit:600000000, term:30 },
+    { code:'SUP-001', name:'Cargill VN', type:'SUPPLIER', province:'Đồng Nai', debt:0, limit:0, term:60 },
+    { code:'SUP-002', name:'Bao bì An Phát', type:'SUPPLIER', province:'Hà Nội', debt:0, limit:0, term:30 },
+    { code:'SUP-003', name:'Vinacam', type:'SUPPLIER', province:'TP.HCM', debt:0, limit:0, term:45 },
+    { code:'SUP-004', name:'Đức Hạnh Marphavet', type:'SUPPLIER', province:'Thái Nguyên', debt:245000000, limit:0, term:30 },
+  ];
+  const cust = PARTNERS.filter(p => p.type === 'CUSTOMER');
+  const sup = PARTNERS.filter(p => p.type === 'SUPPLIER');
+  return (
+    <div>
+      <PageTitle title="Đối tác" subtitle={`${PARTNERS.length} đối tác · ${cust.length} khách hàng · ${sup.length} NCC`}
+        actions={<button onClick={() => toast('Form thêm đối tác — đang xây')} className="inline-flex items-center gap-2 bg-rtd-600 hover:bg-rtd-700 text-white font-medium px-4 py-2 rounded-lg text-sm"><Icon name="plus" className="w-4 h-4" />Thêm đối tác</button>}
+      />
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
+        <SumCard label="Khách hàng" value={String(cust.length)} hint="Đại lý, kênh bán" accent="green" />
+        <SumCard label="Nhà cung cấp" value={String(sup.length)} hint="Nguyên liệu, dịch vụ" accent="blue" />
+        <SumCard label="Tổng phải thu" value={formatVND(cust.reduce((s,p)=>s+p.debt,0))} hint={`${cust.filter(c=>c.debt>0).length} KH có nợ`} accent="amber" />
+        <SumCard label="Tổng phải trả" value={formatVND(sup.reduce((s,p)=>s+p.debt,0))} hint={`${sup.filter(s=>s.debt>0).length} NCC có nợ`} accent="rose" />
+      </div>
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 text-xs text-slate-500 uppercase"><tr><th className="text-left font-semibold px-4 py-3">Mã</th><th className="text-left font-semibold px-4 py-3">Tên</th><th className="text-left font-semibold px-4 py-3">Loại</th><th className="text-left font-semibold px-4 py-3">Tỉnh</th><th className="text-right font-semibold px-4 py-3">Hạn mức</th><th className="text-right font-semibold px-4 py-3">Đang nợ</th><th className="text-center font-semibold px-4 py-3">Hạn TT</th></tr></thead>
+          <tbody className="divide-y divide-slate-100">
+            {PARTNERS.map(p => (
+              <tr key={p.code} className="hover:bg-slate-50">
+                <td className="px-4 py-3 font-mono text-xs">{p.code}</td>
+                <td className="px-4 py-3 font-medium text-slate-800">{p.name}</td>
+                <td className="px-4 py-3"><StatusBadge variant={p.type === 'CUSTOMER' ? 'success' : 'info'}>{p.type === 'CUSTOMER' ? 'Khách hàng' : 'NCC'}</StatusBadge></td>
+                <td className="px-4 py-3 text-slate-600">{p.province}</td>
+                <td className="px-4 py-3 text-right tabular-nums text-slate-700">{p.limit > 0 ? formatVND(p.limit) : '—'}</td>
+                <td className="px-4 py-3 text-right tabular-nums">{p.debt > 0 ? <span className={p.debt >= p.limit * 0.9 ? 'text-rose-600 font-medium' : 'text-amber-600'}>{formatVND(p.debt)}</span> : <span className="text-slate-400">—</span>}</td>
+                <td className="px-4 py-3 text-center text-slate-600 text-xs">{p.term}d</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+const PaymentsPage = ({ toast }) => {
+  const PAYMENTS = [
+    { code:'PT-2026-05-001', type:'RECEIPT', partner:'ĐL Sơn Hùng', date:'07/05/2026', amount:480000000, method:'Chuyển khoản', invoice:'INV-S-2026-04-012', status:'COMPLETED' },
+    { code:'PT-2026-05-002', type:'RECEIPT', partner:'ĐL Minh Phú', date:'06/05/2026', amount:100000000, method:'Chuyển khoản', invoice:'INV-S-2026-04-013', status:'COMPLETED' },
+    { code:'PC-2026-05-001', type:'DISBURSEMENT', partner:'Cargill VN', date:'05/05/2026', amount:1250000000, method:'Chuyển khoản', invoice:'INV-P-2026-04-008', status:'COMPLETED' },
+    { code:'PC-2026-05-002', type:'DISBURSEMENT', partner:'Bao bì An Phát', date:'04/05/2026', amount:85000000, method:'Chuyển khoản', invoice:'INV-P-2026-04-009', status:'COMPLETED' },
+    { code:'PC-2026-05-003', type:'DISBURSEMENT', partner:'Lương khối VP', date:'03/05/2026', amount:320000000, method:'Chuyển khoản', invoice:null, status:'COMPLETED' },
+    { code:'PC-2026-05-004', type:'DISBURSEMENT', partner:'GĐ NM Hà Nam', date:'06/05/2026', amount:12000000, method:'Tiền mặt', invoice:null, status:'DRAFT' },
+  ];
+  const totalIn = PAYMENTS.filter(p => p.type === 'RECEIPT' && p.status === 'COMPLETED').reduce((s,p) => s+p.amount, 0);
+  const totalOut = PAYMENTS.filter(p => p.type === 'DISBURSEMENT' && p.status === 'COMPLETED').reduce((s,p) => s+p.amount, 0);
+  return (
+    <div>
+      <PageTitle title="Phiếu thu / chi" subtitle={`${PAYMENTS.length} phiếu trong tháng 5/2026`}
+        actions={<>
+          <button onClick={() => toast('Phiếu thu — đang xây')} className="inline-flex items-center gap-2 bg-white border border-slate-300 hover:border-rtd-400 hover:text-rtd-700 text-slate-700 font-medium px-4 py-2 rounded-lg text-sm"><Icon name="plus" className="w-4 h-4" />Phiếu thu</button>
+          <button onClick={() => toast('Phiếu chi — đang xây')} className="inline-flex items-center gap-2 bg-rtd-600 hover:bg-rtd-700 text-white font-medium px-4 py-2 rounded-lg text-sm"><Icon name="plus" className="w-4 h-4" />Phiếu chi</button>
+        </>}
+      />
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        <SumCard label="Tổng thu (T5)" value={formatVND(totalIn)} hint={`${PAYMENTS.filter(p=>p.type==='RECEIPT').length} phiếu`} accent="green" />
+        <SumCard label="Tổng chi (T5)" value={formatVND(totalOut)} hint={`${PAYMENTS.filter(p=>p.type==='DISBURSEMENT').length} phiếu`} accent="rose" />
+        <SumCard label="Số dư ròng" value={formatVND(totalIn - totalOut)} hint="Thu - chi" accent="blue" />
+      </div>
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 text-xs text-slate-500 uppercase"><tr><th className="text-left font-semibold px-4 py-3">Số phiếu</th><th className="text-left font-semibold px-4 py-3">Loại</th><th className="text-left font-semibold px-4 py-3">Đối tác</th><th className="text-left font-semibold px-4 py-3">Ngày</th><th className="text-right font-semibold px-4 py-3">Số tiền</th><th className="text-left font-semibold px-4 py-3">Phương thức</th><th className="text-left font-semibold px-4 py-3">HĐ liên quan</th><th className="text-center font-semibold px-4 py-3">Trạng thái</th></tr></thead>
+          <tbody className="divide-y divide-slate-100">
+            {PAYMENTS.map(p => (
+              <tr key={p.code} className="hover:bg-slate-50">
+                <td className="px-4 py-3 font-mono text-xs">{p.code}</td>
+                <td className="px-4 py-3"><StatusBadge variant={p.type === 'RECEIPT' ? 'success' : 'info'}>{p.type === 'RECEIPT' ? 'Phiếu thu' : 'Phiếu chi'}</StatusBadge></td>
+                <td className="px-4 py-3 text-slate-700">{p.partner}</td>
+                <td className="px-4 py-3 text-slate-500 text-xs">{p.date}</td>
+                <td className="px-4 py-3 text-right tabular-nums"><span className={p.type === 'RECEIPT' ? 'text-rtd-700 font-medium' : 'text-rose-700 font-medium'}>{p.type === 'RECEIPT' ? '+' : '-'}{formatVND(p.amount)}</span></td>
+                <td className="px-4 py-3 text-slate-600 text-xs">{p.method}</td>
+                <td className="px-4 py-3 text-slate-500 text-xs font-mono">{p.invoice || '—'}</td>
+                <td className="px-4 py-3 text-center"><StatusBadge variant={p.status === 'COMPLETED' ? 'success' : 'warning'}>{p.status === 'COMPLETED' ? 'Hoàn tất' : 'Nháp'}</StatusBadge></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+const CostCentersPage = () => {
+  const CC = [
+    { code:'NM-HN', name:'Nhà máy Hà Nam', type:'Nhà máy', manager:'Trần Văn Hùng', actual:5280000000, budget:6200000000 },
+    { code:'NM-BN', name:'Nhà máy Bắc Ninh', type:'Nhà máy', manager:'Lê Đức Thắng', actual:3950000000, budget:4500000000 },
+    { code:'TR-TN', name:'Trại Thái Nguyên', type:'Trang trại', manager:'Phạm Văn Bình', actual:2140000000, budget:2400000000 },
+    { code:'TR-BG', name:'Trại Bắc Giang', type:'Trang trại', manager:'Hoàng Đình Sơn', actual:1820000000, budget:2000000000 },
+    { code:'VP-TĐ', name:'Văn phòng Tập đoàn', type:'Văn phòng', manager:'Phạm Quốc Cường', actual:1245000000, budget:1500000000 },
+  ];
+  return (
+    <div>
+      <PageTitle title="Trung tâm chi phí" subtitle={`${CC.length} cost center · Lũy kế từ đầu năm 2026`} />
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {CC.map(c => {
+          const usage = (c.actual / c.budget) * 100;
+          const isOver = usage > 90;
+          return (
+            <div key={c.code} className="bg-white rounded-xl border border-slate-200 p-5">
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-start gap-3">
+                  <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center', c.type === 'Nhà máy' ? 'bg-blue-100 text-blue-700' : c.type === 'Trang trại' ? 'bg-rtd-100 text-rtd-700' : 'bg-slate-100 text-slate-600')}>
+                    <Icon name="briefcase" className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-slate-900">{c.name}</div>
+                    <div className="text-xs text-slate-500 mt-0.5"><code className="font-mono">{c.code}</code> · {c.type}</div>
+                  </div>
+                </div>
+              </div>
+              <div className="text-xs text-slate-500 mb-3 flex items-center gap-1.5"><Icon name="user" className="w-3 h-3" />Quản lý: <span className="font-medium text-slate-700">{c.manager}</span></div>
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm"><span className="text-slate-500">Đã chi</span><span className="font-semibold text-slate-900 tabular-nums">{formatVND(c.actual)}</span></div>
+                <div className="flex justify-between text-sm"><span className="text-slate-500">Ngân sách</span><span className="text-slate-700 tabular-nums">{formatVND(c.budget)}</span></div>
+                <div className="pt-1">
+                  <div className="flex justify-between text-xs text-slate-500 mb-1"><span>Tỷ lệ sử dụng</span><span className={cn('font-semibold', isOver ? 'text-rose-600' : 'text-rtd-700')}>{usage.toFixed(1)}%</span></div>
+                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden"><div className={cn('h-full', isOver ? 'bg-rose-500' : 'bg-rtd-500')} style={{width:`${Math.min(usage,100)}%`}} /></div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+const BudgetsPage = () => {
+  const LINES = [
+    { acc:'511', name:'Doanh thu BH', cc:'NM-HN', plan:7000000000, actual:4855000000 },
+    { acc:'511', name:'Doanh thu BH', cc:'NM-BN', plan:5200000000, actual:3410000000 },
+    { acc:'632', name:'Giá vốn HB', cc:'NM-HN', plan:5200000000, actual:3620000000 },
+    { acc:'632', name:'Giá vốn HB', cc:'NM-BN', plan:3900000000, actual:2530000000 },
+    { acc:'641', name:'CP bán hàng', cc:'VP-TĐ', plan:290000000, actual:285000000 },
+    { acc:'642', name:'CP QLDN', cc:'VP-TĐ', plan:460000000, actual:458000000 },
+  ];
+  const totals = LINES.reduce((a, l) => ({ plan: a.plan + l.plan, actual: a.actual + l.actual }), { plan:0, actual:0 });
+  return (
+    <div>
+      <PageTitle title="Ngân sách" subtitle="Theo dõi kế hoạch vs thực tế · Q2/2026" />
+      <div className="grid grid-cols-3 gap-4 mb-6">
+        <SumCard label="Kế hoạch Q2" value={formatVND(totals.plan)} hint="Theo dự toán" accent="blue" />
+        <SumCard label="Thực tế Q2" value={formatVND(totals.actual)} hint="Lũy kế hiện tại" accent="green" />
+        <SumCard label="Chênh lệch" value={formatVND(Math.abs(totals.actual - totals.plan))} hint={totals.actual > totals.plan ? 'Vượt ngân sách' : 'Trong ngân sách'} accent={totals.actual > totals.plan ? 'rose' : 'green'} />
+      </div>
+      <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-50 text-xs text-slate-500 uppercase"><tr><th className="text-left font-semibold px-4 py-3">TK</th><th className="text-left font-semibold px-4 py-3">Tên</th><th className="text-left font-semibold px-4 py-3">Cost Center</th><th className="text-right font-semibold px-4 py-3">Kế hoạch</th><th className="text-right font-semibold px-4 py-3">Thực tế</th><th className="text-right font-semibold px-4 py-3">Chênh lệch</th><th className="text-center font-semibold px-4 py-3">Trạng thái</th></tr></thead>
+          <tbody className="divide-y divide-slate-100">
+            {LINES.map((l, i) => {
+              const variance = l.actual - l.plan;
+              const variancePct = (variance / l.plan) * 100;
+              return (
+                <tr key={i} className="hover:bg-slate-50">
+                  <td className="px-4 py-3 font-mono text-xs text-slate-500">{l.acc}</td>
+                  <td className="px-4 py-3 text-slate-700">{l.name}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-slate-600">{l.cc}</td>
+                  <td className="px-4 py-3 text-right tabular-nums text-slate-700">{formatVND(l.plan)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums font-medium text-slate-900">{formatVND(l.actual)}</td>
+                  <td className="px-4 py-3 text-right tabular-nums"><span className={variance > 0 ? 'text-rose-600' : 'text-rtd-700'}>{variance > 0 ? '+' : ''}{formatVND(variance)}</span></td>
+                  <td className="px-4 py-3 text-center">{Math.abs(variancePct) < 5 ? <StatusBadge variant="success">Đúng KH</StatusBadge> : variance > 0 ? <StatusBadge variant="danger">Vượt {variancePct.toFixed(1)}%</StatusBadge> : <StatusBadge variant="info">Tiết kiệm {Math.abs(variancePct).toFixed(1)}%</StatusBadge>}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+};
+
+// ============================================================
+// TOAST SYSTEM
+// ============================================================
+
+const ToastContainer = ({ toasts }) => (
+  <div className="fixed top-4 right-4 z-[60] space-y-2 pointer-events-none">
+    {toasts.map(t => (
+      <div key={t.id} className="bg-white rounded-lg shadow-xl border border-slate-200 px-4 py-2.5 text-sm flex items-center gap-2 min-w-[260px] animate-in pointer-events-auto">
+        <Icon name={t.type === 'error' ? 'x' : 'check'} className={cn('w-4 h-4', t.type === 'error' ? 'text-rose-600' : 'text-rtd-600')} />
+        <span className="text-slate-700">{t.msg}</span>
+      </div>
+    ))}
+  </div>
+);
+
+// ============================================================
+// MAIN APP
+// ============================================================
+
+const App = () => {
+  const [authed, setAuthed] = useState(false);
+  const [user, setUser] = useState(null);
+  const [page, setPage] = useState('dashboard');
+  const [orgs, setOrgs] = useState(ORGS);
+  const [users] = useState(USERS);
+  const [journals, setJournals] = useState(INITIAL_JOURNALS);
+  const [approvals, setApprovals] = useState(APPROVALS);
+  const [notifications, setNotifications] = useState(NOTIFICATIONS);
+  const [toasts, setToasts] = useState([]);
+
+  const toast = (msg, type = 'success') => {
+    const id = Date.now() + Math.random();
+    setToasts(t => [...t, { id, msg, type }]);
+    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), 3000);
+  };
+
+  const onLogin = (u) => { setAuthed(true); setUser(u); setPage('dashboard'); toast(`Chào mừng, ${u.fullName}!`); };
+  const onLogout = () => { setAuthed(false); setUser(null); toast('Đã đăng xuất'); };
+  const addOrg = (o) => setOrgs(prev => [...prev, o]);
+  const addJournal = (j) => setJournals(prev => [j, ...prev]);
+  const decideApproval = (id, result, comment) => {
+    setApprovals(prev => prev.map(a => a.id === id ? {
+      ...a,
+      status: result,
+      history: a.history.map(h => h.step === a.currentStep ? { ...h, result, at: new Date().toLocaleString('vi-VN'), comment } : h),
+    } : a));
+  };
+  const markAllRead = () => setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+  const startTour = () => toast('Tour interactive đang xây — bấm sidebar để khám phá 8 trang', 'info');
+
+  if (!authed) {
+    return <>
+      <LoginPage onLogin={onLogin} toast={toast} />
+      <ToastContainer toasts={toasts} />
+    </>;
+  }
+
+  let content;
+  switch (page) {
+    case 'dashboard': content = <Dashboard user={user} setPage={setPage} />; break;
+    case 'orgs': content = <OrgsPage orgs={orgs} addOrg={addOrg} toast={toast} />; break;
+    case 'users': content = <UsersPage users={users} toast={toast} />; break;
+    case 'roles': content = <RolesPage toast={toast} />; break;
+    case 'partners': content = <PartnersPage toast={toast} />; break;
+    case 'approvals': content = <ApprovalsPage approvals={approvals} decide={decideApproval} toast={toast} />; break;
+    case 'audit': content = <AuditPage />; break;
+    case 'settings': content = <SettingsPage toast={toast} />; break;
+    case 'financial': content = <FinancialOverview setPage={setPage} />; break;
+    case 'coa': content = <ChartOfAccountsPage />; break;
+    case 'journals': content = <JournalsPage journals={journals} addJournal={addJournal} toast={toast} />; break;
+    case 'invoices': content = <InvoicesPage toast={toast} />; break;
+    case 'payments': content = <PaymentsPage toast={toast} />; break;
+    case 'costcenters': content = <CostCentersPage />; break;
+    case 'budgets': content = <BudgetsPage />; break;
+    case 'reports': content = <ReportsPage toast={toast} />; break;
+    default: content = <Dashboard user={user} setPage={setPage} />;
+  }
+
+  return (
+    <>
+      <div className="flex flex-col min-h-screen">
+        <DemoBanner onStartTour={startTour} />
+        <div className="flex flex-1">
+          <Sidebar currentPage={page} setPage={setPage} />
+          <div className="flex-1 flex flex-col min-w-0">
+            <Topbar user={user} onLogout={onLogout} notifications={notifications} markAllRead={markAllRead} toast={toast} />
+            <main className="flex-1 p-6 max-w-screen-2xl w-full mx-auto">{content}</main>
+          </div>
+        </div>
+      </div>
+      <AiAssistant />
+      <ToastContainer toasts={toasts} />
+    </>
+  );
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>
